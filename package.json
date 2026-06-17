@@ -1,0 +1,39 @@
+{
+  "name": "dglab-kit",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rslib",
+    "check": "biome check --write",
+    "dev": "rslib --watch",
+    "format": "biome format --write",
+    "test": "rstest",
+    "test:watch": "rstest --watch"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.15",
+    "@rslib/core": "^0.22.1",
+    "@rstest/adapter-rslib": "^0.10.3",
+    "@rstest/core": "^0.10.3",
+    "@types/node": "^24.13.1",
+    "@types/ws": "^8.18.1",
+    "typescript": "^6.0.3"
+  },
+  "private": true,
+  "dependencies": {
+    "eventemitter3": "^5.0.4",
+    "ws": "^8.21.0"
+  }
+}

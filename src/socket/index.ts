@@ -1,0 +1,3 @@
+class DglabSocket {}
+
+export { DglabSocket };
