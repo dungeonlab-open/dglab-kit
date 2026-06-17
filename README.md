@@ -1,4 +1,4 @@
-# Rslib project
+# DGLAB KIT
 
 ## Setup
 
