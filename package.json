@@ -19,14 +19,12 @@
     "check": "biome check --write",
     "dev": "rslib --watch",
     "format": "biome format --write",
-    "test": "rstest",
-    "test:watch": "rstest --watch"
+    "lint": "biome check --write",
+    "test:types": "tsc --ignoreConfig --noEmit --target ES2022 --module ESNext --moduleResolution bundler --lib ES2022,DOM"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
     "@rslib/core": "^0.22.1",
-    "@rstest/adapter-rslib": "^0.10.3",
-    "@rstest/core": "^0.10.3",
     "@types/node": "^24.13.1",
     "@types/ws": "^8.18.1",
     "typescript": "^6.0.3"

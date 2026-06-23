@@ -1,23 +1,15 @@
 # DGLAB KIT
 
-## Setup
-
-Install the dependencies:
+## 安装
 
 ```bash
 bun install
 ```
 
-## Get started
-
-Build the library:
+## 构建与测试
 
 ```bash
 bun run build
-```
-
-Build the library in watch mode:
-
-```bash
-bun run dev
+bun run test:types
+bun run lint
 ```
