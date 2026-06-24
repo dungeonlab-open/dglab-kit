@@ -55,11 +55,17 @@ export class V4Rpc {
     data: TData,
     options?: V4SendOptions,
   ): V4SendPromise<TResponse> {
-    let clientId: string | undefined;
+    const clientId = options?.clientId;
+    if (!clientId) {
+      throw createNamedError(
+        'socket-clientId',
+        '发送协议数据需要指定 clientId',
+      );
+    }
+
     let requestId: string | undefined;
 
     try {
-      clientId = this.resolveClientId(options?.clientId);
       const existingRequestId = V4Rpc.getRequestId(data);
       requestId = existingRequestId ?? this.createRequestId();
       let payload: V4AnyRpcPayload;
@@ -231,13 +237,6 @@ export class V4Rpc {
     return `v4-${Date.now().toString(36)}-${Math.random()
       .toString(36)
       .slice(2, 8)}`;
-  }
-
-  resolveClientId(clientId?: string): string {
-    if (!clientId) {
-      throw createNamedError('socket-target', '尚未指定或接入被控方 clientId');
-    }
-    return clientId;
   }
 
   private responseTimeout(options?: V4SendOptions): number {

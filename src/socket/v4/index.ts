@@ -75,20 +75,17 @@ export class DglabSocketV4 extends DglabSocketBase {
 
   /**
    * 请求最新设备列表
-   * @param clientId ? 被控端 ID
+   * @param clientId 被控端 ID
    * @return Promise<V4DevicesGetResult>
    */
-  async requestDevices(clientId?: string): Promise<V4DevicesGetResult> {
-    const target = this.rpc.resolveClientId(clientId);
+  async requestDevices(clientId: string): Promise<V4DevicesGetResult> {
     const request = this.rpc.createRequest('devices.get');
     const result = await this.rpc.send<V4RpcRequest, V4DevicesGetResult>(
       request,
-      {
-        clientId: target,
-      },
+      { clientId },
     );
 
-    const client = this.ensureClient(target);
+    const client = this.ensureClient(clientId);
     if (client.dispatch({ t: 'resp', result })) {
       this.dispatch('devices', client.devices, client.clientId);
     }
