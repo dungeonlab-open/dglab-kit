@@ -165,9 +165,9 @@ export interface V4DevicesGetResult {
 }
 
 /**
- * V4 设备缓存
+ * V4 被控方设备列表
  */
-export interface V4CachedDevices {
+export interface V4ClientDevices {
   clientId: string; // 当前被控方 clientId
   devices: V4DeviceInfo[]; // SDK 内部自动维护的设备列表
 }

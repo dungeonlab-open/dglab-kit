@@ -13,15 +13,15 @@ import type {
 } from './types';
 
 export class DglabSocketV3 extends DglabSocketBase {
-  private targetId?: string; // 被控端 ID
+  private _targetId?: string; // 被控端 ID
   private pairedTargetId?: string; // 已配对被控端 ID
 
   /**
    * 获取当前控制方 clientId
    * @return string | undefined
    */
-  get targetClientId(): string | undefined {
-    return this.targetId;
+  get targetId(): string | undefined {
+    return this._targetId;
   }
 
   /**
@@ -38,13 +38,13 @@ export class DglabSocketV3 extends DglabSocketBase {
    * @return void
    */
   send<TData = unknown>(data: TData): void {
-    if (!this.targetId || !this.pairedTargetId) {
+    if (!this._targetId || !this.pairedTargetId) {
       throw createNamedError('socket-target', 'V3 尚未完成配对');
     }
 
     this.sendFrame({
       ...data,
-      clientId: this.targetId,
+      clientId: this._targetId,
       targetId: this.pairedTargetId,
     } as unknown as V3LegacyCommand);
   }
@@ -204,7 +204,7 @@ export class DglabSocketV3 extends DglabSocketBase {
    * @return void
    */
   protected onSocketClosed(): void {
-    this.targetId = undefined;
+    this._targetId = undefined;
     this.pairedTargetId = undefined;
   }
 
@@ -213,8 +213,8 @@ export class DglabSocketV3 extends DglabSocketBase {
    * @return DglabSocketConnectResult | undefined
    */
   protected getConnectedResult(): DglabSocketConnectResult | undefined {
-    if (!this.targetId) return undefined;
-    return { targetId: this.targetId };
+    if (!this._targetId) return undefined;
+    return { targetId: this._targetId };
   }
 
   /**
@@ -224,7 +224,7 @@ export class DglabSocketV3 extends DglabSocketBase {
    */
   private handleInitialBind(clientId: string): void {
     // 连接阶段到这里就算完成，二维码可使用该 clientId
-    this.targetId = clientId;
+    this._targetId = clientId;
     this.setState(DGLAB_SOCKET_STATE.WaitingForPeer);
     this.resolveActiveConnect({ targetId: clientId });
   }

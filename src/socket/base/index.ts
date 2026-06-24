@@ -17,8 +17,6 @@ import {
 
 // 默认连接超时
 const DEFAULT_CONNECT_TIMEOUT = 8_000;
-// 默认响应超时
-const DEFAULT_RESPONSE_TIMEOUT = 8_000;
 
 type DglabSocketEmit = <K extends keyof DglabSocketEventMap>(
   event: K,
@@ -344,19 +342,6 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
 
     // 派发状态事件
     this.dispatch('state', state, previous);
-  }
-
-  /**
-   * 获取响应超时时间
-   * @param options 发送选项
-   * @return 响应超时时间
-   */
-  protected responseTimeout(options?: DglabSendOptions): number {
-    return (
-      options?.timeout ??
-      this.options.responseTimeout ??
-      DEFAULT_RESPONSE_TIMEOUT
-    );
   }
 
   /**

@@ -1,48 +1,43 @@
-import { createNamedError, isRecord } from '@/shared';
+import { createNamedError } from '@/shared';
 import {
   DGLAB_SOCKET_STATE,
   type DglabSocketConnectResult,
   type DglabSocketIncoming,
 } from '@/socket';
 import { DglabSocketBase } from '@/socket/base';
+import { V4Client } from './client';
+import { V4Rpc } from './rpc';
 import type {
-  V4AnyRpcPayload,
   V4AppendPulseDataOperate,
   V4AppendPulseDataOptions,
-  V4CachedDevices,
   V4Channel,
   V4ClearOperateOptions,
-  V4DeviceInfo,
   V4DeviceOperate,
   V4DevicesGetResult,
-  V4EventPayload,
   V4HelloFrame,
   V4MessageFrame,
   V4OperateOptions,
-  V4PendingResponse,
   V4RpcRequest,
   V4RpcResponse,
   V4SendOptions,
   V4SendPromise,
   V4ServerFrame,
-  V4SlotPatch,
 } from './types';
 import { V4ActionType as V4Action } from './types';
 
 export class DglabSocketV4 extends DglabSocketBase {
-  private targetId?: string; // 被控端 ID
+  private _targetId?: string; // 被控端 ID
   private _secret?: string; // HTTP 密钥
 
-  private readonly clients = new Set<string>(); // 已接入被控端 clientId 集合
-  private readonly pending = new Map<string, V4PendingResponse>(); // 等待响应集合
-  private readonly deviceCaches = new Map<string, Map<string, V4DeviceInfo>>(); // 设备缓存集合
+  private readonly clientMap = new Map<string, V4Client>(); // 已接入被控方集合
+  readonly rpc = new V4Rpc((frame) => this.sendFrame(frame), this.options);
 
   /**
    * 获取被控端 ID
    * @return string | undefined
    */
-  get targetClientId(): string | undefined {
-    return this.targetId;
+  get targetId(): string | undefined {
+    return this._targetId;
   }
 
   /**
@@ -58,31 +53,24 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @return string[]
    */
   get clientIds(): string[] {
-    return [...this.clients];
+    return [...this.clientMap.keys()];
   }
 
   /**
-   * 获取指定被控端当前设备列表
-   * @param clientId 被控端 ID
-   * @return V4DeviceInfo[]
+   * 获取已接入被控方列表
+   * @return V4Client[]
    */
-  getDevices(clientId?: string): V4DeviceInfo[] {
-    if (!clientId) return [];
-    return [...(this.deviceCaches.get(clientId)?.values() ?? [])].map(
-      (device) => this.cloneDevice(device),
-    );
+  get clients(): V4Client[] {
+    return [...this.clientMap.values()];
   }
 
   /**
-   * 获取当前所有设备列表
-   * @return V4CachedDevices[]
+   * 获取指定被控方连接
+   * @param clientId 被控方 ID，不传时使用最近接入的被控方
+   * @return V4Client | undefined
    */
-  getAllDevices(): V4CachedDevices[] {
-    // 多被控方场景下返回每个 clientId 对应的设备列表
-    return [...this.deviceCaches].map(([clientId, devices]) => ({
-      clientId,
-      devices: [...devices.values()].map((device) => this.cloneDevice(device)),
-    }));
+  getClient(clientId: string): V4Client | undefined {
+    return this.clientMap.get(clientId);
   }
 
   /**
@@ -91,13 +79,20 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @return Promise<V4DevicesGetResult>
    */
   async requestDevices(clientId?: string): Promise<V4DevicesGetResult> {
-    const target = this.resolveClientId(clientId);
-    const request = this.createRpcRequest('devices.get');
-    const result = await this.send<V4RpcRequest, V4DevicesGetResult>(request, {
-      clientId: target,
-    });
-    this.replaceDevices(target, result.devices);
-    this.dispatch('devices', this.getDevices(target), target);
+    const target = this.rpc.resolveClientId(clientId);
+    const request = this.rpc.createRequest('devices.get');
+    const result = await this.rpc.send<V4RpcRequest, V4DevicesGetResult>(
+      request,
+      {
+        clientId: target,
+      },
+    );
+
+    const client = this.ensureClient(target);
+    if (client.dispatch({ t: 'resp', result })) {
+      this.dispatch('devices', client.devices, client.clientId);
+    }
+
     return result;
   }
 
@@ -111,87 +106,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     data: TData,
     options?: V4SendOptions,
   ): V4SendPromise<TResponse> {
-    let clientId: string | undefined;
-    let requestId: string | undefined;
-
-    try {
-      // V4 所有控制方业务消息都要包进外层 message 路由帧
-      clientId = this.resolveClientId(options?.clientId);
-      const existingRequestId = this.getV4RequestId(data);
-      requestId = existingRequestId ?? this.createRequestId();
-      let payload: V4AnyRpcPayload;
-
-      if (isRecord(data)) {
-        if (!requestId || this.getV4RequestId(data))
-          payload = data as V4AnyRpcPayload;
-        payload = { ...data, requestId, reqId: requestId } as V4AnyRpcPayload;
-      } else {
-        payload = {
-          t: 'req',
-          requestId: requestId ?? Date.now(),
-          reqId: requestId,
-          m: 'custom',
-          data,
-        };
-      }
-
-      const waitableRequestId = this.getV4RequestId(payload);
-      let entry: V4PendingResponse<TResponse> | undefined;
-      if (waitableRequestId !== undefined) {
-        const key = this.pendingKey(clientId, waitableRequestId);
-        let resolve!: V4PendingResponse<TResponse>['resolve'];
-        let reject!: V4PendingResponse<TResponse>['reject'];
-        const promise = new Promise<TResponse>((innerResolve, innerReject) => {
-          resolve = innerResolve;
-          reject = innerReject;
-        });
-        const pending: V4PendingResponse<TResponse> = {
-          clientId,
-          requestId: waitableRequestId,
-          promise,
-          resolve,
-          reject,
-          settled: false,
-        };
-        pending.timer = setTimeout(() => {
-          this.pending.delete(key);
-          this.rejectPending(
-            pending,
-            createNamedError('socket-response-timeout', '等待响应超时'),
-          );
-        }, options?.timeout ?? this.responseTimeout());
-
-        entry = pending;
-        this.pending.set(key, pending as V4PendingResponse);
-      }
-      let error: unknown =
-        waitableRequestId === undefined
-          ? createNamedError('socket-command', '当前消息没有可等待响应')
-          : undefined;
-
-      try {
-        // 创建发送给中继服务的外层路由帧
-        this.sendFrame({
-          type: 'message',
-          clientId,
-          data: payload,
-        });
-      } catch (sendError) {
-        error = sendError;
-        if (entry && waitableRequestId !== undefined) {
-          this.pending.delete(this.pendingKey(clientId, waitableRequestId));
-          this.rejectPending(entry, sendError);
-        }
-      }
-
-      const promise = entry?.promise ?? Promise.reject<TResponse>(error);
-      Object.assign(promise, { requestId, clientId });
-      return promise as V4SendPromise<TResponse>;
-    } catch (error) {
-      const promise = Promise.reject<TResponse>(error);
-      Object.assign(promise, { requestId, clientId });
-      return promise as V4SendPromise<TResponse>;
-    }
+    return this.rpc.send(data, options);
   }
 
   /**
@@ -209,7 +124,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     options?: V4OperateOptions,
   ): V4SendPromise {
     // 相对增减强度使用 device.op 的 AddIntensity 任务
-    return this.sendOperate(
+    return this.rpc.sendOperate(
       {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.AddIntensity,
@@ -251,7 +166,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     options?: V4OperateOptions,
   ): V4SendPromise {
     // 临时强度是持续类任务，可通过 duration 控制持续时间
-    return this.sendOperate(
+    return this.rpc.sendOperate(
       {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.SetTempIntensity,
@@ -276,7 +191,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     options?: V4OperateOptions,
   ): V4SendPromise {
     // 静音状态是 oneShot 任务
-    return this.sendOperate(
+    return this.rpc.sendOperate(
       {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.SetMute,
@@ -301,7 +216,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     options?: V4OperateOptions,
   ): V4SendPromise {
     // 绝对强度任务用于直接设置目标强度
-    return this.sendOperate(
+    return this.rpc.sendOperate(
       {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.SetIntensity,
@@ -328,7 +243,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     options?: V4AppendPulseDataOptions,
   ): V4SendPromise {
     // 裸波形数据每 tick 消费一帧
-    return this.sendOperate(
+    return this.rpc.sendOperate(
       {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.AppendPulseData,
@@ -363,8 +278,9 @@ export class DglabSocketV4 extends DglabSocketBase {
       options && 'slotId' in options && options.slotId
         ? { s: options.slotId, c: options.channel }
         : undefined;
-    return this.send(
-      this.createRpcRequest('device.op.clear', data),
+
+    return this.rpc.send(
+      this.rpc.createRequest('device.op.clear', data),
       options?.clientId ? { clientId: options.clientId } : undefined,
     );
   }
@@ -396,21 +312,24 @@ export class DglabSocketV4 extends DglabSocketBase {
         this.handleHello(frame);
         return;
       case 'client_attached': {
-        // 记录最近接入的被控方
-        this.clients.add(frame.clientId);
         this.setState(DGLAB_SOCKET_STATE.Paired);
-        this.dispatch('clientAttached', frame.clientId);
+
+        const clientId = frame.clientId;
+
+        this.ensureClient(clientId);
+        this.dispatch('clientAttached', clientId);
         return;
       }
       case 'client_disconnected': {
-        // 被控方断开时清理默认目标和对应等待项
-        this.clients.delete(frame.clientId);
-        this.deviceCaches.delete(frame.clientId);
-        if (this.clients.size === 0) {
+        if (this.clientMap.size === 0) {
           this.setState(DGLAB_SOCKET_STATE.WaitingForPeer);
         }
-        this.rejectClientPending(frame.clientId);
-        this.dispatch('clientDisconnected', frame.clientId);
+
+        const clientId = frame.clientId;
+
+        this.detachClient(clientId);
+        this.rpc.rejectClientPending(clientId);
+        this.dispatch('clientDisconnected', clientId);
         return;
       }
       case 'message':
@@ -429,11 +348,15 @@ export class DglabSocketV4 extends DglabSocketBase {
   }
 
   protected onSocketClosed(): void {
-    this.targetId = undefined;
+    this._targetId = undefined;
     this._secret = undefined;
-    this.clients.clear();
-    this.deviceCaches.clear();
-    this.rejectAllPending(
+
+    for (const client of this.clientMap.values()) {
+      client.destroy();
+    }
+    this.clientMap.clear();
+
+    this.rpc.rejectAllPending(
       createNamedError('socket-disconnected', 'WebSocket 已断开'),
     );
   }
@@ -445,8 +368,8 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @return DglabSocketConnectResult | undefined
    * */
   protected getConnectedResult(): DglabSocketConnectResult | undefined {
-    if (!this.targetId) return undefined;
-    return { targetId: this.targetId, secret: this._secret };
+    if (!this._targetId) return undefined;
+    return { targetId: this._targetId, secret: this._secret };
   }
 
   /**
@@ -455,13 +378,25 @@ export class DglabSocketV4 extends DglabSocketBase {
    * */
   private handleHello(frame: V4HelloFrame): void {
     // 测试服务返回 secret，旧文档服务可能返回 apikey
-    this.targetId = frame.clientId;
+    this._targetId = frame.clientId;
     this._secret = frame.secret;
+
     this.setState(DGLAB_SOCKET_STATE.WaitingForPeer);
+
     this.resolveActiveConnect({
       targetId: frame.clientId,
       secret: this._secret,
     });
+  }
+
+  /**
+   * 处理被控方断开
+   * @param clientId 被控方 ID
+   */
+  private detachClient(clientId: string): void {
+    const client = this.clientMap.get(clientId);
+    client?.destroy();
+    this.clientMap.delete(clientId);
   }
 
   /**
@@ -474,241 +409,29 @@ export class DglabSocketV4 extends DglabSocketBase {
     // 派发所有消息
     this.dispatch('data', data, frame.clientId);
 
-    // 更新设备缓存，V4 被控方事件会主动维护设备缓存，控制方无需轮询设备列表
-    this.updateDevicesFromEvent(frame.clientId, data);
+    const client = this.clientMap.get(frame.clientId);
+    if (client?.dispatch(data)) {
+      this.dispatch('devices', client.devices, client.clientId);
+    }
 
     // 如果不是 RPC 响应帧则不处理后续响应等待
-    if (!this.isV4RpcResponse(data)) return;
-
-    // 响应帧可能包含最新设备列表，更新缓存并派发 devices 事件
-    if (this.updateDevicesFromResponse(frame.clientId, data.result)) {
-      this.dispatch('devices', this.getDevices(frame.clientId), frame.clientId);
-    }
+    if (!V4Rpc.isResponse(data)) return;
 
     // 只有响应帧且 requestId 匹配时才完成响应等待
-    const requestId = this.getV4RequestId(data);
-    if (!requestId) return;
-    const key = this.pendingKey(frame.clientId, requestId);
-    const entry = this.pending.get(key);
-    if (!entry) return;
-
-    this.pending.delete(key);
-
-    // 完成等待中的响应，响应 error 会作为 reject 抛出
-    if (data.error) {
-      this.rejectPending(
-        entry,
-        createNamedError('socket-v4-response', data.error ?? 'V4 指令执行失败'),
-      );
-      return;
-    }
-
-    // 完成等待中的响应
-    if (entry.settled) return;
-    entry.settled = true;
-    if (entry.timer) clearTimeout(entry.timer);
-    entry.resolve(data.result);
+    this.rpc.resolveResponse(frame.clientId, data);
   }
 
   /**
-   * 判断是否为 V4 RPC 响应帧
-   * @param data 帧数据
-   * @return data is V4RpcResponse
-   * */
-  private isV4RpcResponse(data: unknown): data is V4RpcResponse {
-    return isRecord(data) && data.t === 'resp';
-  }
-
-  /**
-   * 更新设备缓存
-   * V4 被控方事件会主动维护设备缓存，控制方无需轮询设备列表
-   * @param clientId 被控端 ID
-   * @param data 帧数据
-   * */
-  private updateDevicesFromEvent(clientId: string, data: unknown): void {
-    if (!this.isV4EventPayload(data)) return;
-
-    // 处理全量设备列表
-    if (data.ev === 'devices.snapshot') {
-      this.replaceDevices(clientId, data.devices);
-      this.dispatch('devices', this.getDevices(clientId), clientId);
-      return;
-    }
-
-    // 处理增量设备列表
-    if (data.ev === 'devices.patch') {
-      this.patchDevices(clientId, data.added ?? [], data.removed ?? []);
-      this.dispatch('devices', this.getDevices(clientId), clientId);
-      return;
-    }
-
-    // 处理设备属性 patch
-    if (data.ev === 'slots.patch') {
-      this.patchSlots(clientId, data.slots ?? []);
-      this.dispatch('devices', this.getDevices(clientId), clientId);
-    }
-  }
-
-  /**
-   * 更新设备缓存
-   * V4 devices.get 返回全量描述列表，也需要同步刷新本地缓存
-   * @param clientId 被控端 ID
-   * @param result RPC 响应结果
-   * @return boolean 是否更新成功
-   * */
-  private updateDevicesFromResponse(
-    clientId: string,
-    result: unknown,
-  ): boolean {
-    if (!this.hasDevicesResult(result)) return false;
-    this.replaceDevices(clientId, result.devices);
-    return true;
-  }
-
-  /**
-   * 替换设备缓存
-   * @param clientId 被控端 ID
-   * @param devices 设备列表
-   * */
-  private replaceDevices(clientId: string, devices: V4DeviceInfo[]): void {
-    // 全量事件直接替换该被控方的设备列表
-    const cache = new Map<string, V4DeviceInfo>();
-    for (const device of devices) {
-      cache.set(device.slotId, this.cloneDevice(device));
-    }
-    this.deviceCaches.set(clientId, cache);
-  }
-
-  /**
-   * 增量更新设备缓存
-   * @param clientId 被控端 ID
-   * @param added 新增设备列表
-   * @param removed 移除设备 slotId 列表
-   * */
-  private patchDevices(
-    clientId: string,
-    added: V4DeviceInfo[],
-    removed: string[],
-  ): void {
-    // 增量事件只变更对应 slot，避免丢失其他设备状态
-    const cache = this.ensureDeviceCache(clientId);
-    for (const device of added) {
-      cache.set(device.slotId, this.cloneDevice(device));
-    }
-    for (const slotId of removed) {
-      cache.delete(slotId);
-    }
-  }
-
-  /**
-   * 增量更新插槽缓存
-   * @param clientId 被控端 ID
-   * @param slots 插槽增量列表
-   * */
-  private patchSlots(clientId: string, slots: V4SlotPatch[]): void {
-    const cache = this.ensureDeviceCache(clientId);
-    for (const slot of slots) {
-      const current = cache.get(slot.slotId);
-      if (!current) continue;
-
-      // 合并 props 和 slotState
-      cache.set(slot.slotId, {
-        ...current,
-        props: { ...(current.props ?? {}), ...(slot.props ?? {}) },
-        slotState: {
-          ...(current.slotState ?? {}),
-          ...(slot.slotState ?? {}),
-        },
-      });
-    }
-  }
-
-  /**
-   * 确保被控端设备缓存存在
-   * @param clientId 被控端 ID
-   * */
-  private ensureDeviceCache(clientId: string): Map<string, V4DeviceInfo> {
-    let cache = this.deviceCaches.get(clientId);
-    if (!cache) {
-      cache = new Map();
-      this.deviceCaches.set(clientId, cache);
-    }
-    return cache;
-  }
-
-  /**
-   * 克隆设备信息，避免外部对象突变影响缓存
-   * @param device 设备信息
-   * */
-  private cloneDevice(device: V4DeviceInfo): V4DeviceInfo {
-    return {
-      ...device,
-      props: device.props ? { ...device.props } : undefined,
-      slotState: device.slotState ? { ...device.slotState } : undefined,
-    };
-  }
-
-  /**
-   * 判断是否为 V4 事件负载
-   * @param data 帧数据
-   * */
-  private isV4EventPayload(data: unknown): data is V4EventPayload {
-    return (
-      typeof data === 'object' &&
-      data !== null &&
-      't' in data &&
-      data.t === 'ev' &&
-      'ev' in data &&
-      typeof data.ev === 'string'
-    );
-  }
-
-  /**
-   * 判断是否为 V4 devices.get 响应结果
-   * */
-  private hasDevicesResult(
-    result: unknown,
-  ): result is { devices: V4DeviceInfo[] } {
-    return (
-      typeof result === 'object' &&
-      result !== null &&
-      'devices' in result &&
-      Array.isArray(result.devices)
-    );
-  }
-
-  /**
-   * 创建 V4 RPC 请求
-   * @param method RPC 方法名
-   * @param data 请求数据
+   * 确保被控方连接存在
+   * @param clientId 被控方 ID
    */
-  private createRpcRequest<TData>(
-    method: string,
-    data?: TData,
-  ): V4RpcRequest<TData> {
-    const requestId = this.createRequestId();
-    return {
-      t: 'req',
-      reqId: requestId,
-      requestId,
-      m: method,
-      data,
-    };
-  }
-
-  /**
-   * 发送 device.op 指令
-   * @param data 指令数据
-   * @param options 选项
-   * */
-  private sendOperate(
-    data: V4DeviceOperate,
-    options?: V4OperateOptions,
-  ): V4SendPromise {
-    return this.send(this.createRpcRequest('device.op', data), {
-      clientId: options?.clientId,
-      timeout: options?.timeout,
-    });
+  private ensureClient(clientId: string): V4Client {
+    let client = this.clientMap.get(clientId);
+    if (!client) {
+      client = new V4Client(clientId);
+      this.clientMap.set(clientId, client);
+    }
+    return client;
   }
 
   /**
@@ -729,87 +452,6 @@ export class DglabSocketV4 extends DglabSocketBase {
       d: options?.duration,
       im: options?.immediate,
     };
-  }
-
-  /**
-   * 创建唯一请求 ID
-   */
-  private createRequestId(): string {
-    return `v4-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  }
-
-  /**
-   * 解析被控端 clientId，未指定时抛出错误
-   * @param clientId 被控端 ID
-   * @return string
-   * */
-  private resolveClientId(clientId?: string): string {
-    // V4 可以有多个被控方
-    if (!clientId) {
-      throw createNamedError('socket-target', '尚未指定或接入被控方 clientId');
-    }
-    return clientId;
-  }
-
-  /**
-   * 获取等待响应键，按被控方和请求 ID 组合，避免多被控方请求互相串扰
-   * @param clientId 被控端 ID
-   * @param requestId 请求 ID
-   * */
-  private pendingKey(clientId: string, requestId: string): string {
-    return `${clientId}\u0000${requestId}`;
-  }
-
-  /**
-   * 拒绝指定被控端的所有待完成指令
-   * @param clientId 被控端 ID
-   * */
-  private rejectClientPending(clientId: string): void {
-    // 被控方断开时只拒绝它自己的待完成指令
-    for (const [key, entry] of this.pending) {
-      if (entry.clientId !== clientId) continue;
-      this.pending.delete(key);
-      this.rejectPending(
-        entry,
-        createNamedError('socket-disconnected', '被控方已断开'),
-      );
-    }
-  }
-
-  /**
-   * 拒绝所有待完成指令
-   * @param error 错误对象
-   * */
-  private rejectAllPending(error: Error): void {
-    // 控制方连接断开时拒绝所有待完成指令
-    for (const [, entry] of this.pending) {
-      this.rejectPending(entry, error);
-    }
-    this.pending.clear();
-  }
-
-  /**
-   * 获取 V4 请求 ID
-   * @param data 帧数据
-   * @return string | undefined
-   * */
-  private getV4RequestId(data: unknown): string | undefined {
-    if (!isRecord(data)) return undefined;
-    if (typeof data.requestId === 'string') return data.requestId;
-    if (typeof data.reqId === 'string') return data.reqId;
-    return undefined;
-  }
-
-  /**
-   * 拒绝响应等待，已经完成的槽会忽略后续错误
-   * @param entry 响应等待槽
-   * @param error 错误对象
-   * */
-  private rejectPending<T>(entry: V4PendingResponse<T>, error: unknown): void {
-    if (entry.settled) return;
-    entry.settled = true;
-    if (entry.timer) clearTimeout(entry.timer);
-    entry.reject(error);
   }
 }
 
