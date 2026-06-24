@@ -303,7 +303,6 @@ export type V4DeviceOperate =
  */
 export interface V4OperateOptions extends V4SendOptions {
   priority?: 0 | 1 | 2; // 任务优先级
-  duration?: number; // 任务持续时间，单位 ms
   immediate?: boolean; // 是否替换同类任务
 }
 

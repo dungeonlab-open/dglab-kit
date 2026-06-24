@@ -162,6 +162,7 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @param channel 通道
    * @param value 强度
    * @param options 选项
+   * @param duration 持续时长
    * @return V4SendPromise<unknown>
    */
   setTempIntensity(
@@ -169,6 +170,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     slotId: string,
     channel: V4Channel,
     value: number,
+    duration: number,
     options?: V4OperateOptions,
   ): V4SendPromise {
     // 临时强度是持续类任务，可通过 duration 控制持续时间
@@ -178,6 +180,7 @@ export class DglabSocketV4 extends DglabSocketBase {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.SetTempIntensity,
         v: value,
+        d: duration,
       },
       options,
     );
@@ -212,28 +215,25 @@ export class DglabSocketV4 extends DglabSocketBase {
   }
 
   /**
-   * 设置强度（绝对）
+   * 设置强度为 0
    * @param clientId 被控方 ID
    * @param slotId 设备 ID
    * @param channel 通道
-   * @param value 强度
    * @param options 选项
    * @return V4SendPromise<unknown>
    */
-  setIntensity(
+  resetIntensity(
     clientId: string,
     slotId: string,
     channel: V4Channel,
-    value: number,
     options?: V4OperateOptions,
   ): V4SendPromise {
-    // 绝对强度任务用于直接设置目标强度
     return this.rpc.sendOperate(
       clientId,
       {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.SetIntensity,
-        v: value,
+        v: 0,
       },
       options,
     );
@@ -470,7 +470,6 @@ export class DglabSocketV4 extends DglabSocketBase {
       s: slotId,
       c: channel,
       p: options?.priority,
-      d: options?.duration,
       im: options?.immediate,
     };
   }
