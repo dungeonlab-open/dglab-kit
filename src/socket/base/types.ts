@@ -138,14 +138,6 @@ export interface DglabSendOptions {
 }
 
 /**
- * SOCKET 命令
- * 默认仅发送，使用 unwrap 方法时，会等待响应完成
- */
-export interface DglabSocketCommand<T = unknown> {
-  unwrap: () => Promise<T>;
-}
-
-/**
  * SOCKET 事件映射
  */
 export interface DglabSocketEventMap {

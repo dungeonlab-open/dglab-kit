@@ -1,10 +1,4 @@
-import {
-  createDeferredPromise,
-  createNamedError,
-  isRecord,
-  type PendingValue,
-} from '@/shared';
-import type { DglabSocketCommand } from '@/socket';
+import { createNamedError, isRecord } from '@/shared';
 import {
   DGLAB_SOCKET_STATE,
   type DglabSocketConnectResult,
@@ -29,6 +23,7 @@ import type {
   V4RpcRequest,
   V4RpcResponse,
   V4SendOptions,
+  V4SendPromise,
   V4ServerFrame,
   V4SlotPatch,
 } from './types';
@@ -100,7 +95,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     const request = this.createRpcRequest('devices.get');
     const result = await this.send<V4RpcRequest, V4DevicesGetResult>(request, {
       clientId: target,
-    }).unwrap();
+    });
     this.replaceDevices(target, result.devices);
     this.dispatch('devices', this.getDevices(target), target);
     return result;
@@ -110,62 +105,93 @@ export class DglabSocketV4 extends DglabSocketBase {
    * 发送协议数据
    * @param data 数据
    * @param options 选项
-   * @return DglabSocketCommand<TResponse> & { requestId?: string; clientId?: string }
+   * @return V4SendPromise<TResponse>
    */
   send<TData = unknown, TResponse = unknown>(
     data: TData,
     options?: V4SendOptions,
-  ): DglabSocketCommand<TResponse> & { requestId?: string; clientId?: string } {
-    // V4 所有控制方业务消息都要包进外层 message 路由帧
-    const clientId = this.resolveClientId(options?.clientId);
-    const existingRequestId = this.getV4RequestId(data);
-    const requestId = existingRequestId ?? this.createRequestId();
-    let payload: V4AnyRpcPayload;
+  ): V4SendPromise<TResponse> {
+    let clientId: string | undefined;
+    let requestId: string | undefined;
 
-    if (isRecord(data)) {
-      if (!requestId || this.getV4RequestId(data))
-        payload = data as V4AnyRpcPayload;
-      payload = { ...data, requestId, reqId: requestId } as V4AnyRpcPayload;
-    } else {
-      payload = {
-        t: 'req',
-        requestId: requestId ?? Date.now(),
-        reqId: requestId,
-        m: 'custom',
-        data,
-      };
-    }
+    try {
+      // V4 所有控制方业务消息都要包进外层 message 路由帧
+      clientId = this.resolveClientId(options?.clientId);
+      const existingRequestId = this.getV4RequestId(data);
+      requestId = existingRequestId ?? this.createRequestId();
+      let payload: V4AnyRpcPayload;
 
-    const waitableRequestId = this.getV4RequestId(payload);
-    const wait =
-      waitableRequestId === undefined
-        ? undefined
-        : this.createLazyWait<TResponse>(
-            clientId,
-            waitableRequestId,
-            options?.timeout,
+      if (isRecord(data)) {
+        if (!requestId || this.getV4RequestId(data))
+          payload = data as V4AnyRpcPayload;
+        payload = { ...data, requestId, reqId: requestId } as V4AnyRpcPayload;
+      } else {
+        payload = {
+          t: 'req',
+          requestId: requestId ?? Date.now(),
+          reqId: requestId,
+          m: 'custom',
+          data,
+        };
+      }
+
+      const waitableRequestId = this.getV4RequestId(payload);
+      let entry: V4PendingResponse<TResponse> | undefined;
+      if (waitableRequestId !== undefined) {
+        const key = this.pendingKey(clientId, waitableRequestId);
+        let resolve!: V4PendingResponse<TResponse>['resolve'];
+        let reject!: V4PendingResponse<TResponse>['reject'];
+        const promise = new Promise<TResponse>((innerResolve, innerReject) => {
+          resolve = innerResolve;
+          reject = innerReject;
+        });
+        const pending: V4PendingResponse<TResponse> = {
+          clientId,
+          requestId: waitableRequestId,
+          promise,
+          resolve,
+          reject,
+          settled: false,
+        };
+        pending.timer = setTimeout(() => {
+          this.pending.delete(key);
+          this.rejectPending(
+            pending,
+            createNamedError('socket-response-timeout', '等待响应超时'),
           );
+        }, options?.timeout ?? this.responseTimeout());
 
-    // 创建发送给中继服务的外层路由帧
-    this.sendFrame({
-      type: 'message',
-      clientId,
-      data: payload,
-    });
+        entry = pending;
+        this.pending.set(key, pending as V4PendingResponse);
+      }
+      let error: unknown =
+        waitableRequestId === undefined
+          ? createNamedError('socket-command', '当前消息没有可等待响应')
+          : undefined;
 
-    // 返回命令句柄但不主动等待，只有 unwrap 才注册响应等待
-    return {
-      requestId,
-      clientId,
-      unwrap: () => {
-        if (!wait) {
-          return Promise.reject(
-            createNamedError('socket-command', '当前消息没有可等待响应'),
-          );
+      try {
+        // 创建发送给中继服务的外层路由帧
+        this.sendFrame({
+          type: 'message',
+          clientId,
+          data: payload,
+        });
+      } catch (sendError) {
+        error = sendError;
+        if (entry && waitableRequestId !== undefined) {
+          this.pending.delete(this.pendingKey(clientId, waitableRequestId));
+          this.rejectPending(entry, sendError);
         }
-        return wait();
-      },
-    };
+      }
+
+      const promise = entry?.promise ?? Promise.reject<TResponse>(error);
+      Object.assign(promise, { requestId, clientId });
+      return promise as V4SendPromise<TResponse>;
+    } catch (error) {
+      const promise = Promise.reject<TResponse>(error);
+      Object.assign(promise, { requestId, clientId });
+      return promise as V4SendPromise<TResponse>;
+    }
   }
 
   /**
@@ -174,14 +200,14 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @param channel 通道
    * @param value 强度
    * @param options 选项
-   * @return DglabSocketCommand<unknown>
+   * @return V4SendPromise<unknown>
    */
   addIntensity(
     slotId: string,
     channel: V4Channel,
     value: number,
     options?: V4OperateOptions,
-  ): DglabSocketCommand {
+  ): V4SendPromise {
     // 相对增减强度使用 device.op 的 AddIntensity 任务
     return this.sendOperate(
       {
@@ -199,7 +225,7 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @param channel 通道
    * @param value 强度
    * @param options 选项
-   * @return DglabSocketCommand<unknown>
+   * @return V4SendPromise<unknown>
    */
   reduceStrength(
     slotId: string,
@@ -216,14 +242,14 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @param channel 通道
    * @param value 强度
    * @param options 选项
-   * @return DglabSocketCommand<unknown>
+   * @return V4SendPromise<unknown>
    */
   setTempIntensity(
     slotId: string,
     channel: V4Channel,
     value: number,
     options?: V4OperateOptions,
-  ): DglabSocketCommand {
+  ): V4SendPromise {
     // 临时强度是持续类任务，可通过 duration 控制持续时间
     return this.sendOperate(
       {
@@ -241,14 +267,14 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @param channel 通道
    * @param muted 是否屏蔽
    * @param options 选项
-   * @return DglabSocketCommand<unknown>
+   * @return V4SendPromise<unknown>
    */
   setMute(
     slotId: string,
     channel: V4Channel,
     muted: boolean,
     options?: V4OperateOptions,
-  ): DglabSocketCommand {
+  ): V4SendPromise {
     // 静音状态是 oneShot 任务
     return this.sendOperate(
       {
@@ -266,14 +292,14 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @param channel 通道
    * @param value 强度
    * @param options 选项
-   * @return DglabSocketCommand<unknown>
+   * @return V4SendPromise<unknown>
    */
   setIntensity(
     slotId: string,
     channel: V4Channel,
     value: number,
     options?: V4OperateOptions,
-  ): DglabSocketCommand {
+  ): V4SendPromise {
     // 绝对强度任务用于直接设置目标强度
     return this.sendOperate(
       {
@@ -292,7 +318,7 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @param duration 持续时长
    * @param frames 波形帧
    * @param options 选项
-   * @return DglabSocketCommand<unknown>
+   * @return V4SendPromise<unknown>
    */
   sendPulse(
     slotId: string,
@@ -300,7 +326,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     duration: number,
     frames: V4AppendPulseDataOperate['v'],
     options?: V4AppendPulseDataOptions,
-  ): DglabSocketCommand {
+  ): V4SendPromise {
     // 裸波形数据每 tick 消费一帧
     return this.sendOperate(
       {
@@ -319,7 +345,7 @@ export class DglabSocketV4 extends DglabSocketBase {
    * 清理波形数据
    * @param slotId 设备 ID
    * @param channel 通道
-   * @return DglabSocketCommand<unknown>
+   * @return V4SendPromise<unknown>
    * */
   clearPulse(slotId: string, channel: V4Channel) {
     return this.clearOperate({ slotId, channel });
@@ -329,9 +355,9 @@ export class DglabSocketV4 extends DglabSocketBase {
    * 清理任务
    * 可清理特定通道/设备的任务，也可清理全部任务
    * @param options 选项
-   * @return DglabSocketCommand<unknown>
+   * @return V4SendPromise<unknown>
    * */
-  clearOperate(options?: V4ClearOperateOptions): DglabSocketCommand {
+  clearOperate(options?: V4ClearOperateOptions): V4SendPromise {
     // 不传 slotId 时清理全部任务，传 channel 时清理指定通道
     const data =
       options && 'slotId' in options && options.slotId
@@ -451,7 +477,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     // 更新设备缓存，V4 被控方事件会主动维护设备缓存，控制方无需轮询设备列表
     this.updateDevicesFromEvent(frame.clientId, data);
 
-    // 如果不是 RPC 响应帧则不处理后续 unwrap 等待
+    // 如果不是 RPC 响应帧则不处理后续响应等待
     if (!this.isV4RpcResponse(data)) return;
 
     // 响应帧可能包含最新设备列表，更新缓存并派发 devices 事件
@@ -459,7 +485,7 @@ export class DglabSocketV4 extends DglabSocketBase {
       this.dispatch('devices', this.getDevices(frame.clientId), frame.clientId);
     }
 
-    // 只有响应帧且 requestId 匹配时才完成 unwrap 等待
+    // 只有响应帧且 requestId 匹配时才完成响应等待
     const requestId = this.getV4RequestId(data);
     if (!requestId) return;
     const key = this.pendingKey(frame.clientId, requestId);
@@ -470,16 +496,18 @@ export class DglabSocketV4 extends DglabSocketBase {
 
     // 完成等待中的响应，响应 error 会作为 reject 抛出
     if (data.error) {
-      this.settlePendingValue(
-        entry.pending,
-        undefined,
+      this.rejectPending(
+        entry,
         createNamedError('socket-v4-response', data.error ?? 'V4 指令执行失败'),
       );
       return;
     }
 
     // 完成等待中的响应
-    this.settlePendingValue(entry.pending, data.result);
+    if (entry.settled) return;
+    entry.settled = true;
+    if (entry.timer) clearTimeout(entry.timer);
+    entry.resolve(data.result);
   }
 
   /**
@@ -676,7 +704,7 @@ export class DglabSocketV4 extends DglabSocketBase {
   private sendOperate(
     data: V4DeviceOperate,
     options?: V4OperateOptions,
-  ): DglabSocketCommand {
+  ): V4SendPromise {
     return this.send(this.createRpcRequest('device.op', data), {
       clientId: options?.clientId,
       timeout: options?.timeout,
@@ -724,68 +752,6 @@ export class DglabSocketV4 extends DglabSocketBase {
   }
 
   /**
-   * 注册等待响应槽，返回延迟等待对象
-   * @param clientId 被控端 ID
-   * @param requestId 请求 ID
-   * @param timeout 超时时间，单位 ms
-   * */
-  private registerPending<T>(
-    clientId: string,
-    requestId: string,
-    timeout?: number,
-  ): V4PendingResponse<T> {
-    // 等待键按被控方和请求 ID 组合，避免多被控方请求互相串扰
-    const key = this.pendingKey(clientId, requestId);
-    const entry: V4PendingResponse<T> = {
-      clientId,
-      requestId,
-      pending: this.createPendingValue<T>(
-        timeout ?? this.responseTimeout(),
-        () => this.pending.delete(key),
-      ),
-    };
-
-    this.pending.set(key, entry as V4PendingResponse);
-    return entry;
-  }
-
-  /**
-   * 创建延迟等待函数，第一次调用时注册等待响应槽并开始计时，重复调用复用同一等待槽
-   * @param clientId 被控端 ID
-   * @param requestId 请求 ID
-   * @param timeout 超时时间，单位 ms
-   * */
-  private createLazyWait<T>(
-    clientId: string,
-    requestId: string,
-    timeout?: number,
-  ): () => Promise<T> {
-    let promise: Promise<T> | undefined;
-    return () => {
-      if (!promise) {
-        // 第一次 unwrap 才开始计时，重复 unwrap 复用同一个 Promise
-        const { pending } = this.registerPending<T>(
-          clientId,
-          requestId,
-          timeout,
-        );
-
-        // 只在调用 unwrap 时返回 Promise，符合指令默认只发送的语义
-        if (pending.settled) {
-          promise = pending.error
-            ? Promise.reject(pending.error)
-            : Promise.resolve(pending.value as T);
-        } else {
-          const deferred = createDeferredPromise<T>();
-          pending.waiters.add(deferred);
-          promise = deferred.promise;
-        }
-      }
-      return promise;
-    };
-  }
-
-  /**
    * 获取等待响应键，按被控方和请求 ID 组合，避免多被控方请求互相串扰
    * @param clientId 被控端 ID
    * @param requestId 请求 ID
@@ -803,9 +769,8 @@ export class DglabSocketV4 extends DglabSocketBase {
     for (const [key, entry] of this.pending) {
       if (entry.clientId !== clientId) continue;
       this.pending.delete(key);
-      this.settlePendingValue(
-        entry.pending,
-        undefined,
+      this.rejectPending(
+        entry,
         createNamedError('socket-disconnected', '被控方已断开'),
       );
     }
@@ -818,7 +783,7 @@ export class DglabSocketV4 extends DglabSocketBase {
   private rejectAllPending(error: Error): void {
     // 控制方连接断开时拒绝所有待完成指令
     for (const [, entry] of this.pending) {
-      this.settlePendingValue(entry.pending, undefined, error);
+      this.rejectPending(entry, error);
     }
     this.pending.clear();
   }
@@ -836,50 +801,15 @@ export class DglabSocketV4 extends DglabSocketBase {
   }
 
   /**
-   * 创建延迟等待槽，未调用 unwrap 时不会产生未处理 Promise
-   * @param timeoutMs 超时时间，单位 ms
-   * @param onTimeout 超时回调
-   * */
-  private createPendingValue<T>(
-    timeoutMs: number,
-    onTimeout: () => void,
-  ): PendingValue<T> {
-    const pending: PendingValue<T> = {
-      settled: false,
-      waiters: new Set(),
-    };
-    pending.timer = setTimeout(() => {
-      onTimeout();
-      this.settlePendingValue(
-        pending,
-        undefined,
-        createNamedError('socket-response-timeout', '等待响应超时'),
-      );
-    }, timeoutMs);
-    return pending;
-  }
-
-  /**
-   * 完成延迟等待槽，已经完成的槽会忽略后续响应
-   * @param pending 延迟等待槽
-   * @param value 响应值
+   * 拒绝响应等待，已经完成的槽会忽略后续错误
+   * @param entry 响应等待槽
    * @param error 错误对象
    * */
-  private settlePendingValue<T>(
-    pending: PendingValue<T>,
-    value?: T,
-    error?: unknown,
-  ): void {
-    if (pending.settled) return;
-    pending.settled = true;
-    pending.value = value;
-    pending.error = error;
-    if (pending.timer) clearTimeout(pending.timer);
-    for (const waiter of pending.waiters) {
-      if (error) waiter.reject(error);
-      else waiter.resolve(value as T);
-    }
-    pending.waiters.clear();
+  private rejectPending<T>(entry: V4PendingResponse<T>, error: unknown): void {
+    if (entry.settled) return;
+    entry.settled = true;
+    if (entry.timer) clearTimeout(entry.timer);
+    entry.reject(error);
   }
 }
 

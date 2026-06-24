@@ -10,7 +10,7 @@ import {
   type DglabSocketV4Options,
 } from './base/types';
 import { DglabSocketV3 } from './v3';
-import type { V4SendCommand } from './v4';
+import type { V4SendPromise } from './v4';
 import { DglabSocketV4 } from './v4';
 
 const socketEvents = [
@@ -71,7 +71,7 @@ class DglabSocketImpl extends EventEmitter<DglabSocketEventMap> {
   send<TData = unknown, TResponse = unknown>(
     data: TData,
     options?: DglabSendOptions,
-  ): undefined | V4SendCommand<TResponse> {
+  ): undefined | V4SendPromise<TResponse> {
     if (this.adapter instanceof DglabSocketV3) {
       this.adapter.send(data);
       return;

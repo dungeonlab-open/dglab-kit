@@ -1,11 +1,6 @@
 import EventEmitter from 'eventemitter3';
 import { WebSocket as WsWebSocket } from 'ws';
-import {
-  createDeferredPromise,
-  createNamedError,
-  type Deferred,
-  isRecord,
-} from '@/shared';
+import { createNamedError, isRecord } from '@/shared';
 import {
   DGLAB_SOCKET_STATE,
   type DglabSendOptions,
@@ -30,12 +25,18 @@ type DglabSocketEmit = <K extends keyof DglabSocketEventMap>(
   ...args: Parameters<DglabSocketEventMap[K]>
 ) => boolean;
 
+interface ActiveConnect {
+  promise: Promise<DglabSocketConnectResult>;
+  resolve: (value: DglabSocketConnectResult) => void;
+  reject: (reason?: unknown) => void;
+}
+
 export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> {
   protected readonly options: DglabSocketOptions; // SOCKET 选项
   protected socket?: DglabWebSocketLike; // SOCKET 实例
 
   private manualSender?: DglabSocketSender; // 手动发送函数
-  private connectDeferred?: Deferred<DglabSocketConnectResult>; // 连接等待
+  private activeConnect?: ActiveConnect; // 连接等待
   private connectTimer?: ReturnType<typeof setTimeout>; // 连接超时计时器
   private cleanups: DglabSocketListenerCleanup[] = []; // 监听清理函数
   private currentState = DGLAB_SOCKET_STATE.Idle; // 当前状态
@@ -59,11 +60,20 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
     if (activeResult) return Promise.resolve(activeResult);
 
     // 如果存在连接等待，则返回等待结果
-    if (this.connectDeferred) return this.connectDeferred.promise;
+    if (this.activeConnect) return this.activeConnect.promise;
 
     // 准备 SOCKET 连接
     this.setState(DGLAB_SOCKET_STATE.Connecting);
-    this.connectDeferred = createDeferredPromise<DglabSocketConnectResult>();
+    let resolve!: ActiveConnect['resolve'];
+    let reject!: ActiveConnect['reject'];
+    const promise = new Promise<DglabSocketConnectResult>(
+      (innerResolve, innerReject) => {
+        resolve = innerResolve;
+        reject = innerReject;
+      },
+    );
+    const activeConnect: ActiveConnect = { promise, resolve, reject };
+    this.activeConnect = activeConnect;
     this.connectTimer = setTimeout(() => {
       // 连接超时，拒绝连接等待
       this.rejectActiveConnect(
@@ -84,7 +94,7 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
     }
 
     // 返回连接等待结果
-    return this.connectDeferred.promise;
+    return activeConnect.promise;
   }
 
   /**
@@ -251,7 +261,7 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
     }
 
     // 如果存在连接等待，则拒绝连接等待
-    if (this.connectDeferred) {
+    if (this.activeConnect) {
       this.rejectActiveConnect(
         createNamedError('socket-connect-closed', '连接完成前已关闭'),
       );
@@ -378,8 +388,8 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
   protected resolveActiveConnect(result: DglabSocketConnectResult): void {
     if (this.connectTimer) clearTimeout(this.connectTimer);
     this.connectTimer = undefined;
-    this.connectDeferred?.resolve(result);
-    this.connectDeferred = undefined;
+    this.activeConnect?.resolve(result);
+    this.activeConnect = undefined;
   }
 
   /**
@@ -389,8 +399,8 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
   protected rejectActiveConnect(error: Error): void {
     if (this.connectTimer) clearTimeout(this.connectTimer);
     this.connectTimer = undefined;
-    this.connectDeferred?.reject(error);
-    this.connectDeferred = undefined;
+    this.activeConnect?.reject(error);
+    this.activeConnect = undefined;
   }
 
   /**

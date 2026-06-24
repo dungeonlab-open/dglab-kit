@@ -1,6 +1,3 @@
-import type { PendingValue } from '@/shared';
-import type { DglabSocketCommand } from '@/socket';
-
 /**
  * V4 协议帧类型
  */
@@ -327,13 +324,12 @@ export type V4ClearOperateOptions =
   | (V4SendOptions & { slotId: string; channel?: V4Channel });
 
 /**
- * V4 发送命令
+ * V4 发送 Promise
  */
-export interface V4SendCommand<TResponse = unknown>
-  extends DglabSocketCommand<TResponse> {
+export type V4SendPromise<TResponse = unknown> = Promise<TResponse> & {
   requestId?: string; // 实际发送给被控方的请求 ID
   clientId?: string; // 实际目标被控方 clientId
-}
+};
 
 /**
  * V4 任意 RPC 负载联合类型
@@ -349,5 +345,9 @@ export type V4AnyRpcPayload =
 export interface V4PendingResponse<T = unknown> {
   clientId: string; // 目标被控方 clientId
   requestId: string; // 等待响应请求 ID
-  pending: PendingValue<T>; // 等待响应值
+  promise: Promise<T>; // 等待响应 Promise
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+  timer?: ReturnType<typeof setTimeout>;
+  settled: boolean;
 }
