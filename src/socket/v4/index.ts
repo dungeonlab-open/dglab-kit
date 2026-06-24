@@ -338,7 +338,7 @@ export class DglabSocketV4 extends DglabSocketBase {
         const clientId = frame.clientId;
 
         this.ensureClient(clientId);
-        this.dispatch('clientAttached', clientId);
+        this.dispatch('client-attached', clientId);
         return;
       }
       case 'client_disconnected': {
@@ -350,7 +350,7 @@ export class DglabSocketV4 extends DglabSocketBase {
 
         this.detachClient(clientId);
         this.rpc.rejectClientPending(clientId);
-        this.dispatch('clientDisconnected', clientId);
+        this.dispatch('client-disconnected', clientId);
         return;
       }
       case 'message':

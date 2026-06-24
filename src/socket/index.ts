@@ -22,8 +22,8 @@ const socketEvents = [
   'frame',
   'data',
   'devices',
-  'clientAttached',
-  'clientDisconnected',
+  'client-attached',
+  'client-disconnected',
 ] as const satisfies readonly (keyof DglabSocketEventMap)[];
 
 type DglabSocketAdapter = DglabSocketV3 | DglabSocketV4;

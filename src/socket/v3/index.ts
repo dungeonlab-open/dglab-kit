@@ -175,7 +175,7 @@ export class DglabSocketV3 extends DglabSocketBase {
         this.pairedTargetId = undefined;
         this.setState(DGLAB_SOCKET_STATE.WaitingForPeer);
         if (typeof frame.targetId === 'string') {
-          this.dispatch('clientDisconnected', frame.targetId);
+          this.dispatch('client-disconnected', frame.targetId);
         }
         return;
       case 'error':
@@ -238,7 +238,7 @@ export class DglabSocketV3 extends DglabSocketBase {
     // V3 只维护一个被控方 targetId
     this.pairedTargetId = targetId;
     this.setState(DGLAB_SOCKET_STATE.Paired);
-    this.dispatch('clientAttached', targetId);
+    this.dispatch('client-attached', targetId);
   }
 }
 

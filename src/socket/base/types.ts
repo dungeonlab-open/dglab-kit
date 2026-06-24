@@ -148,6 +148,6 @@ export interface DglabSocketEventMap {
   frame: (frame: unknown) => void;
   data: (data: unknown, clientId?: string) => void;
   devices: (devices: V4DeviceInfo[], clientId: string) => void;
-  clientAttached: (clientId: string) => void;
-  clientDisconnected: (clientId: string) => void;
+  'client-attached': (clientId: string) => void;
+  'client-disconnected': (clientId: string) => void;
 }
