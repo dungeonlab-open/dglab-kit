@@ -133,7 +133,6 @@ export interface DglabSocketCloseEvent {
  * SOCKET 发送选项
  */
 export interface DglabSendOptions {
-  clientId?: string;
   timeout?: number;
 }
 

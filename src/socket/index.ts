@@ -65,18 +65,26 @@ class DglabSocketImpl extends EventEmitter<DglabSocketEventMap> {
 
   /**
    * 发送协议数据
-   * @param data 要发送的数据
+   * V3: send(data)
+   * V4: send(clientId, data, options)
+   * @param clientIdOrData V3 数据或 V4 被控方 ID
+   * @param data V4 要发送的数据
    * @param options 选项
    */
   send<TData = unknown, TResponse = unknown>(
-    data: TData,
+    clientIdOrData: string | TData,
+    data?: TData,
     options?: DglabSendOptions,
   ): undefined | V4SendPromise<TResponse> {
     if (this.adapter instanceof DglabSocketV3) {
-      this.adapter.send(data);
+      this.adapter.send(clientIdOrData);
       return;
     }
-    return this.adapter.send<TData, TResponse>(data, options);
+    return this.adapter.send<TData, TResponse>(
+      clientIdOrData as string,
+      data as TData,
+      options,
+    );
   }
 
   /**

@@ -3,7 +3,6 @@ import { WebSocket as WsWebSocket } from 'ws';
 import { createNamedError, isRecord } from '@/shared';
 import {
   DGLAB_SOCKET_STATE,
-  type DglabSendOptions,
   type DglabSocketCloseEvent,
   type DglabSocketConnectResult,
   type DglabSocketEventMap,
@@ -103,10 +102,9 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
 
   /**
    * 发送协议数据
-   * @param data 数据
-   * @param options 发送选项，对于 V4 可传递 clientId 向特定的被控端发送数据
+   * @param args 协议版本对应的发送参数
    * */
-  abstract send(data: unknown, options?: DglabSendOptions): unknown;
+  abstract send(...args: unknown[]): unknown;
 
   /**
    * 自定义协议数据发送（仅供使用自定义 Websocket 时使用）

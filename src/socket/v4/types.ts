@@ -223,7 +223,6 @@ export type V4EventPayload =
  * V4 发送选项
  */
 export interface V4SendOptions {
-  clientId?: string; // 目标被控方 clientId，不传时使用最近接入的被控方
   timeout?: number; // 指令等待超时时间
 }
 
@@ -312,8 +311,8 @@ export interface V4OperateOptions extends V4SendOptions {
  * V4 清理操作选项
  */
 export type V4ClearOperateOptions =
-  | (V4SendOptions & { slotId?: undefined; channel?: undefined })
-  | (V4SendOptions & { slotId: string; channel?: V4Channel });
+  | { slotId?: undefined; channel?: undefined }
+  | { slotId: string; channel?: V4Channel };
 
 /**
  * V4 发送 Promise

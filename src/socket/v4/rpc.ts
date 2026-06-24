@@ -48,14 +48,15 @@ export class V4Rpc {
 
   /**
    * 发送协议数据
+   * @param clientId 被控方 ID
    * @param data 数据
    * @param options 选项
    */
   send<TData = unknown, TResponse = unknown>(
+    clientId: string,
     data: TData,
     options?: V4SendOptions,
   ): V4SendPromise<TResponse> {
-    const clientId = options?.clientId;
     if (!clientId) {
       throw createNamedError(
         'socket-clientId',
@@ -143,15 +144,16 @@ export class V4Rpc {
 
   /**
    * 发送 device.op 指令
+   * @param clientId 被控方 ID
    * @param data 指令数据
    * @param options 选项
    */
   sendOperate(
+    clientId: string,
     data: V4DeviceOperate,
     options?: V4OperateOptions,
   ): V4SendPromise {
-    return this.send(this.createRequest('device.op', data), {
-      clientId: options?.clientId,
+    return this.send(clientId, this.createRequest('device.op', data), {
       timeout: options?.timeout,
     });
   }

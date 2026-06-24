@@ -66,7 +66,7 @@ export class DglabSocketV4 extends DglabSocketBase {
 
   /**
    * 获取指定被控方连接
-   * @param clientId 被控方 ID，不传时使用最近接入的被控方
+   * @param clientId 被控方 ID
    * @return V4Client | undefined
    */
   getClient(clientId: string): V4Client | undefined {
@@ -81,8 +81,8 @@ export class DglabSocketV4 extends DglabSocketBase {
   async requestDevices(clientId: string): Promise<V4DevicesGetResult> {
     const request = this.rpc.createRequest('devices.get');
     const result = await this.rpc.send<V4RpcRequest, V4DevicesGetResult>(
+      clientId,
       request,
-      { clientId },
     );
 
     const client = this.ensureClient(clientId);
@@ -95,19 +95,22 @@ export class DglabSocketV4 extends DglabSocketBase {
 
   /**
    * 发送协议数据
+   * @param clientId 被控方 ID
    * @param data 数据
    * @param options 选项
    * @return V4SendPromise<TResponse>
    */
   send<TData = unknown, TResponse = unknown>(
+    clientId: string,
     data: TData,
     options?: V4SendOptions,
   ): V4SendPromise<TResponse> {
-    return this.rpc.send(data, options);
+    return this.rpc.send(clientId, data, options);
   }
 
   /**
    * 增加强度（相对）
+   * @param clientId 被控方 ID
    * @param slotId 设备 ID
    * @param channel 通道
    * @param value 强度
@@ -115,6 +118,7 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @return V4SendPromise<unknown>
    */
   addIntensity(
+    clientId: string,
     slotId: string,
     channel: V4Channel,
     value: number,
@@ -122,6 +126,7 @@ export class DglabSocketV4 extends DglabSocketBase {
   ): V4SendPromise {
     // 相对增减强度使用 device.op 的 AddIntensity 任务
     return this.rpc.sendOperate(
+      clientId,
       {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.AddIntensity,
@@ -133,6 +138,7 @@ export class DglabSocketV4 extends DglabSocketBase {
 
   /**
    * 减少强度（相对）
+   * @param clientId 被控方 ID
    * @param slotId 设备 ID
    * @param channel 通道
    * @param value 强度
@@ -140,16 +146,18 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @return V4SendPromise<unknown>
    */
   reduceStrength(
+    clientId: string,
     slotId: string,
     channel: V4Channel,
     value: number,
     options?: V4OperateOptions,
   ) {
-    return this.addIntensity(slotId, channel, -value, options);
+    return this.addIntensity(clientId, slotId, channel, -value, options);
   }
 
   /**
    * 设置临时强度
+   * @param clientId 被控方 ID
    * @param slotId 设备 ID
    * @param channel 通道
    * @param value 强度
@@ -157,6 +165,7 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @return V4SendPromise<unknown>
    */
   setTempIntensity(
+    clientId: string,
     slotId: string,
     channel: V4Channel,
     value: number,
@@ -164,6 +173,7 @@ export class DglabSocketV4 extends DglabSocketBase {
   ): V4SendPromise {
     // 临时强度是持续类任务，可通过 duration 控制持续时间
     return this.rpc.sendOperate(
+      clientId,
       {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.SetTempIntensity,
@@ -175,6 +185,7 @@ export class DglabSocketV4 extends DglabSocketBase {
 
   /**
    * 设置屏蔽通道输出
+   * @param clientId 被控方 ID
    * @param slotId 设备 ID
    * @param channel 通道
    * @param muted 是否屏蔽
@@ -182,6 +193,7 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @return V4SendPromise<unknown>
    */
   setMute(
+    clientId: string,
     slotId: string,
     channel: V4Channel,
     muted: boolean,
@@ -189,6 +201,7 @@ export class DglabSocketV4 extends DglabSocketBase {
   ): V4SendPromise {
     // 静音状态是 oneShot 任务
     return this.rpc.sendOperate(
+      clientId,
       {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.SetMute,
@@ -200,6 +213,7 @@ export class DglabSocketV4 extends DglabSocketBase {
 
   /**
    * 设置强度（绝对）
+   * @param clientId 被控方 ID
    * @param slotId 设备 ID
    * @param channel 通道
    * @param value 强度
@@ -207,6 +221,7 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @return V4SendPromise<unknown>
    */
   setIntensity(
+    clientId: string,
     slotId: string,
     channel: V4Channel,
     value: number,
@@ -214,6 +229,7 @@ export class DglabSocketV4 extends DglabSocketBase {
   ): V4SendPromise {
     // 绝对强度任务用于直接设置目标强度
     return this.rpc.sendOperate(
+      clientId,
       {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.SetIntensity,
@@ -225,6 +241,7 @@ export class DglabSocketV4 extends DglabSocketBase {
 
   /**
    * 下发波形数据
+   * @param clientId 被控方 ID
    * @param slotId 设备 ID
    * @param channel 通道
    * @param duration 持续时长
@@ -233,6 +250,7 @@ export class DglabSocketV4 extends DglabSocketBase {
    * @return V4SendPromise<unknown>
    */
   sendPulse(
+    clientId: string,
     slotId: string,
     channel: V4Channel,
     duration: number,
@@ -241,6 +259,7 @@ export class DglabSocketV4 extends DglabSocketBase {
   ): V4SendPromise {
     // 裸波形数据每 tick 消费一帧
     return this.rpc.sendOperate(
+      clientId,
       {
         ...this.createOperateBase(slotId, channel, options),
         t: V4Action.AppendPulseData,
@@ -255,21 +274,26 @@ export class DglabSocketV4 extends DglabSocketBase {
 
   /**
    * 清理波形数据
+   * @param clientId 被控方 ID
    * @param slotId 设备 ID
    * @param channel 通道
    * @return V4SendPromise<unknown>
    * */
-  clearPulse(slotId: string, channel: V4Channel) {
-    return this.clearOperate({ slotId, channel });
+  clearPulse(clientId: string, slotId: string, channel: V4Channel) {
+    return this.clearOperate(clientId, { slotId, channel });
   }
 
   /**
    * 清理任务
    * 可清理特定通道/设备的任务，也可清理全部任务
+   * @param clientId 被控方 ID
    * @param options 选项
    * @return V4SendPromise<unknown>
    * */
-  clearOperate(options?: V4ClearOperateOptions): V4SendPromise {
+  clearOperate(
+    clientId: string,
+    options?: V4ClearOperateOptions,
+  ): V4SendPromise {
     // 不传 slotId 时清理全部任务，传 channel 时清理指定通道
     const data =
       options && 'slotId' in options && options.slotId
@@ -277,8 +301,8 @@ export class DglabSocketV4 extends DglabSocketBase {
         : undefined;
 
     return this.rpc.send(
+      clientId,
       this.rpc.createRequest('device.op.clear', data),
-      options?.clientId ? { clientId: options.clientId } : undefined,
     );
   }
 
