@@ -165,14 +165,6 @@ export interface V4DevicesGetResult {
 }
 
 /**
- * V4 被控方设备列表
- */
-export interface V4ClientDevices {
-  clientId: string; // 当前被控方 clientId
-  devices: V4DeviceInfo[]; // SDK 内部自动维护的设备列表
-}
-
-/**
  * V4 设备快照事件
  */
 export interface V4DevicesSnapshotEvent {
