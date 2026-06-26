@@ -153,9 +153,12 @@ export class V4Rpc {
     data: V4DeviceOperate,
     options?: V4OperateOptions,
   ): V4SendPromise {
-    return this.send(clientId, this.createRequest('device.op', data), {
-      timeout: options?.timeout,
-    });
+    const timeout = this.operateResponseTimeout(data, options);
+    return this.send(
+      clientId,
+      this.createRequest('device.op', data),
+      timeout === undefined ? undefined : { timeout },
+    );
   }
 
   /**
@@ -247,6 +250,17 @@ export class V4Rpc {
       this.options.responseTimeout ??
       DEFAULT_RESPONSE_TIMEOUT
     );
+  }
+
+  private operateResponseTimeout(
+    data: V4DeviceOperate,
+    options?: V4OperateOptions,
+  ): number | undefined {
+    if (options?.timeout !== undefined) return options.timeout;
+    if (this.options.responseTimeout !== undefined) return undefined;
+    return data.d !== undefined && data.d > DEFAULT_RESPONSE_TIMEOUT
+      ? data.d + 1_000
+      : undefined;
   }
 
   private pendingKey(clientId: string, requestId: string): string {

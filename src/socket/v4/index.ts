@@ -187,34 +187,6 @@ export class DglabSocketV4 extends DglabSocketBase {
   }
 
   /**
-   * 设置屏蔽通道输出
-   * @param clientId 被控方 ID
-   * @param slotId 设备 ID
-   * @param channel 通道
-   * @param muted 是否屏蔽
-   * @param options 选项
-   * @return V4SendPromise<unknown>
-   */
-  setMute(
-    clientId: string,
-    slotId: string,
-    channel: V4Channel,
-    muted: boolean,
-    options?: V4OperateOptions,
-  ): V4SendPromise {
-    // 静音状态是 oneShot 任务
-    return this.rpc.sendOperate(
-      clientId,
-      {
-        ...this.createOperateBase(slotId, channel, options),
-        t: V4Action.SetMute,
-        v: muted,
-      },
-      options,
-    );
-  }
-
-  /**
    * 设置强度为 0
    * @param clientId 被控方 ID
    * @param slotId 设备 ID

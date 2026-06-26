@@ -78,14 +78,12 @@ export type V4RpcMethod = 'devices.get' | 'device.op' | 'device.op.clear';
  * - AppendPulseData: 裸波形数据任务
  * - AddIntensity: 相对增减强度任务
  * - SetTempIntensity: 设置临时强度任务
- * - SetMute: 设置静音状态任务
  * - SetIntensity: 设置绝对强度任务
  */
 export enum V4ActionType {
   AppendPulseData = 0,
   AddIntensity = 3,
   SetTempIntensity = 4,
-  SetMute = 5,
   SetIntensity = 7,
 }
 
@@ -254,14 +252,6 @@ export interface V4SetTempIntensityOperate extends V4DeviceOperateBase {
 }
 
 /**
- * V4 通道屏蔽指令
- */
-export interface V4SetMuteOperate extends V4DeviceOperateBase {
-  t: V4ActionType.SetMute;
-  v: boolean; // true 表示屏蔽
-}
-
-/**
  * V4 绝对强度指令
  */
 export interface V4SetIntensityOperate extends V4DeviceOperateBase {
@@ -294,7 +284,6 @@ export interface V4AppendPulseDataOptions
 export type V4DeviceOperate =
   | V4AddIntensityOperate
   | V4SetTempIntensityOperate
-  | V4SetMuteOperate
   | V4SetIntensityOperate
   | V4AppendPulseDataOperate;
 
