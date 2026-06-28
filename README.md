@@ -112,7 +112,6 @@ socket.on('client-attached', async (clientId) => {
   await socket.resetIntensity(clientId, slotId, V4Channel.A);
   await socket.addIntensity(clientId, slotId, V4Channel.A, 5);
   await socket.setTempIntensity(clientId, slotId, V4Channel.A, 30, 3000);
-  await socket.setMute(clientId, slotId, V4Channel.B, true);
 
   await socket.sendPulse(
     clientId,
@@ -145,7 +144,6 @@ socket.on('devices', (devices, clientId) => {
 | `addIntensity(clientId, slotId, channel, value, options)`               | 增加强度                 |
 | `reduceStrength(clientId, slotId, channel, value, options)`             | 减少强度                 |
 | `setTempIntensity(clientId, slotId, channel, value, duration, options)` | 设置临时强度               |
-| `setMute(clientId, slotId, channel, muted, options)`                    | 屏蔽或恢复通道输出            |
 | `sendPulse(clientId, slotId, channel, duration, frames, options)`       | 下发波形帧                |
 | `clearPulse(clientId, slotId, channel)`                                 | 清理指定设备通道波形           |
 | `clearOperate(clientId, options?)`                                      | 清理任务，可清理全部、指定设备或指定通道 |

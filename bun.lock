@@ -4,16 +4,14 @@
   "workspaces": {
     "": {
       "name": "dglab-kit",
-      "dependencies": {
-        "eventemitter3": "^5.0.4",
-        "ws": "^8.21.0",
-      },
       "devDependencies": {
         "@biomejs/biome": "2.4.15",
         "@rslib/core": "^0.22.1",
         "@types/node": "^24.13.1",
         "@types/ws": "^8.18.1",
+        "eventemitter3": "^5.0.4",
         "typescript": "^6.0.3",
+        "ws": "^8.21.0",
       },
     },
   },

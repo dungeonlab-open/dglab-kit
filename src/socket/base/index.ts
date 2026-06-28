@@ -1,5 +1,4 @@
 import EventEmitter from 'eventemitter3';
-import { WebSocket as WsWebSocket } from 'ws';
 import { createNamedError, isRecord } from '@/shared';
 import {
   DGLAB_SOCKET_STATE,
@@ -315,7 +314,7 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
     }
 
     // 有 URL 时默认使用 ws 创建并管理连接
-    const socket = new WsWebSocket(
+    const socket = new WebSocket(
       this.options.url,
       this.options.protocols,
     ) as unknown as DglabWebSocketLike;

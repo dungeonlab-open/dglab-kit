@@ -314,14 +314,15 @@ export class DglabSocketV4 extends DglabSocketBase {
         return;
       }
       case 'client_disconnected': {
-        if (this.clientMap.size === 0) {
-          this.setState(DGLAB_SOCKET_STATE.WaitingForPeer);
-        }
-
         const clientId = frame.clientId;
 
         this.detachClient(clientId);
         this.rpc.rejectClientPending(clientId);
+
+        if (this.clientMap.size === 0) {
+          this.setState(DGLAB_SOCKET_STATE.WaitingForPeer);
+        }
+
         this.dispatch('client-disconnected', clientId);
         return;
       }

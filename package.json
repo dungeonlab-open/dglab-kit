@@ -27,11 +27,11 @@
     "@rslib/core": "^0.22.1",
     "@types/node": "^24.13.1",
     "@types/ws": "^8.18.1",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "eventemitter3": "^5.0.4"
   },
   "private": true,
   "dependencies": {
-    "eventemitter3": "^5.0.4",
     "ws": "^8.21.0"
   }
 }
