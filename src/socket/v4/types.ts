@@ -218,6 +218,13 @@ export type V4EventPayload =
   | V4CustomActionEvent;
 
 /**
+ * V4 设备事件
+ */
+export type V4DeviceEventPayload =
+  | V4DeviceInfo
+  | (Partial<V4DeviceInfo> & { slotId: string; removed?: true });
+
+/**
  * V4 发送选项
  */
 export interface V4SendOptions {

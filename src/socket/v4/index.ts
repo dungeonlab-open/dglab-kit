@@ -14,6 +14,8 @@ import type {
   V4ClearOperateOptions,
   V4DeviceOperate,
   V4DevicesGetResult,
+  V4DeviceEventPayload,
+  V4DeviceInfo,
   V4HelloFrame,
   V4MessageFrame,
   V4OperateOptions,
@@ -404,6 +406,10 @@ export class DglabSocketV4 extends DglabSocketBase {
     this.dispatch('data', data, frame.clientId);
 
     const client = this.clientMap.get(frame.clientId);
+    for (const event of this.createDeviceEvents(data, client)) {
+      this.dispatch('device', event, frame.clientId);
+    }
+
     if (client?.dispatch(data)) {
       this.dispatch('devices', client.devices, client.clientId);
     }
@@ -426,6 +432,99 @@ export class DglabSocketV4 extends DglabSocketBase {
       this.clientMap.set(clientId, client);
     }
     return client;
+  }
+
+  /**
+   * 根据设备事件生成单设备事件
+   * @param data 上行数据
+   * @param client 被控方状态
+   */
+  private createDeviceEvents(
+    data: unknown,
+    client: V4Client | undefined,
+  ): V4DeviceEventPayload[] {
+    if (!this.isEventRecord(data)) return [];
+
+    if (data.ev === 'devices.snapshot') {
+      const devices = Array.isArray(data.devices)
+        ? (data.devices as V4DeviceInfo[])
+        : [];
+      const changed = devices
+        .map((device) => this.createDeviceUpsertEvent(device, client))
+        .filter((event) => event !== undefined);
+      const nextSlotIds = new Set(devices.map((device) => device.slotId));
+      const removed =
+        client?.devices
+          .filter((device) => !nextSlotIds.has(device.slotId))
+          .map((device) => ({ slotId: device.slotId, removed: true as const })) ??
+        [];
+      return [...changed, ...removed];
+    }
+
+    if (data.ev === 'devices.patch') {
+      const added = Array.isArray(data.added)
+        ? (data.added as V4DeviceInfo[])
+        : [];
+      const removed = Array.isArray(data.removed)
+        ? (data.removed as string[])
+        : [];
+
+      return [
+        ...added
+          .map((device) => this.createDeviceUpsertEvent(device, client))
+          .filter((event) => event !== undefined),
+        ...removed.map((slotId) => ({ slotId, removed: true as const })),
+      ];
+    }
+
+    if (data.ev === 'slots.patch') {
+      return Array.isArray(data.slots)
+        ? (data.slots as V4DeviceEventPayload[])
+        : [];
+    }
+
+    return [];
+  }
+
+  private createDeviceUpsertEvent(
+    device: V4DeviceInfo,
+    client: V4Client | undefined,
+  ): V4DeviceEventPayload | undefined {
+    const previous = client?.getDevice(device.slotId);
+    if (!previous) return device;
+
+    const event: Partial<V4DeviceInfo> & { slotId: string } = {
+      slotId: device.slotId,
+    };
+    if (previous.name !== device.name) event.name = device.name;
+    if (previous.type !== device.type) event.type = device.type;
+    if (!this.isEqualValue(previous.props, device.props)) {
+      event.props = device.props;
+    }
+    if (!this.isEqualValue(previous.slotState, device.slotState)) {
+      event.slotState = device.slotState;
+    }
+
+    return Object.keys(event).length > 1 ? event : undefined;
+  }
+
+  private isEqualValue(left: unknown, right: unknown): boolean {
+    if (Object.is(left, right)) return true;
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+
+  private isEventRecord(data: unknown): data is Record<string, unknown> & {
+    t: 'ev';
+    ev: string;
+  } {
+    return (
+      typeof data === 'object' &&
+      data !== null &&
+      't' in data &&
+      data.t === 'ev' &&
+      'ev' in data &&
+      typeof data.ev === 'string'
+    );
   }
 
   /**

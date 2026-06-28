@@ -1,4 +1,15 @@
-import type { V4DeviceInfo } from '@/socket';
+import type {
+  V3DeviceEventPayload,
+  V3DeviceInfo,
+  V4DeviceEventPayload,
+  V4DeviceInfo,
+} from '@/socket';
+
+export type DglabSocketDeviceEventPayload =
+  | V3DeviceEventPayload
+  | V4DeviceEventPayload;
+
+export type DglabSocketDeviceInfo = V3DeviceInfo | V4DeviceInfo;
 
 /**
  * DG-LAB APP 支持的协议
@@ -147,7 +158,8 @@ export interface DglabSocketEventMap {
   error: (error: unknown) => void;
   frame: (frame: unknown) => void;
   data: (data: unknown, clientId?: string) => void;
-  devices: (devices: V4DeviceInfo[], clientId: string) => void;
+  device: (event: DglabSocketDeviceEventPayload, clientId: string) => void;
+  devices: (devices: DglabSocketDeviceInfo[], clientId: string) => void;
   'client-attached': (clientId: string) => void;
   'client-disconnected': (clientId: string) => void;
 }

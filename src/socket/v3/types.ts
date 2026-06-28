@@ -78,6 +78,33 @@ export type V3Channel = 1 | 2;
 export type V3WaveChannel = 'A' | 'B';
 
 /**
+ * V3 单设备信息
+ */
+export interface V3DeviceInfo {
+  clientId: string; // V3 被控端 ID
+  name: 'DGLAB V3';
+  type: 'DGLAB_V3';
+  props?: {
+    strength?: {
+      A?: number;
+      B?: number;
+    };
+    softLimit?: {
+      A?: number;
+      B?: number;
+    };
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * V3 单设备事件
+ */
+export type V3DeviceEventPayload =
+  | V3DeviceInfo
+  | (Partial<V3DeviceInfo> & { clientId: string; removed?: true });
+
+/**
  * V3 波形选项
  */
 export interface V3WaveOptions {

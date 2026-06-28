@@ -81,7 +81,8 @@ console.log(socket.state === DGLAB_SOCKET_STATE.WaitingForPeer);
 | `message`             | `(data, raw) => void`         | 收到原始消息文本      |
 | `frame`               | `(frame) => void`             | 收到已解析协议帧      |
 | `data`                | `(data, clientId?) => void`   | 收到被控端上行应用数据   |
-| `devices`             | `(devices, clientId) => void` | V4 设备列表更新     |
+| `device`              | `(device, clientId) => void`  | 单设备事件，新增为完整数据，更新为增量 |
+| `devices`             | `(devices, clientId) => void` | V4 当前完整设备列表更新  |
 | `client-attached`     | `(clientId) => void`          | 被控端接入         |
 | `client-disconnected` | `(clientId) => void`          | 被控端断开         |
 
@@ -126,6 +127,10 @@ socket.on('client-attached', async (clientId) => {
 
 socket.on('devices', (devices, clientId) => {
   console.log('设备列表更新:', clientId, devices);
+});
+
+socket.on('device', (device, clientId) => {
+  console.log('单设备变化:', clientId, device);
 });
 ```
 

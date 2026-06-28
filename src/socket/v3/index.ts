@@ -7,6 +7,8 @@ import {
 import { DglabSocketBase } from '@/socket/base';
 import type {
   V3Channel,
+  V3DeviceEventPayload,
+  V3DeviceInfo,
   V3LegacyCommand,
   V3ServerFrame,
   V3WaveOptions,
@@ -15,6 +17,7 @@ import type {
 export class DglabSocketV3 extends DglabSocketBase {
   private _targetId?: string; // 被控端 ID
   private pairedTargetId?: string; // 已配对被控端 ID
+  private device?: V3DeviceInfo; // V3 单设备快照
 
   /**
    * 获取当前控制方 clientId
@@ -173,10 +176,15 @@ export class DglabSocketV3 extends DglabSocketBase {
       case 'break':
         // 对端断开后回到等待配对状态
         this.pairedTargetId = undefined;
+        this.device = undefined;
         this.setState(DGLAB_SOCKET_STATE.WaitingForPeer);
         if (typeof frame.targetId === 'string') {
+          this.dispatchDevice({ clientId: frame.targetId, removed: true });
           this.dispatch('client-disconnected', frame.targetId);
         }
+        return;
+      case 'msg':
+        this.handleForwardMessage(frame);
         return;
       case 'error':
         // 处理错误帧
@@ -206,6 +214,7 @@ export class DglabSocketV3 extends DglabSocketBase {
   protected onSocketClosed(): void {
     this._targetId = undefined;
     this.pairedTargetId = undefined;
+    this.device = undefined;
   }
 
   /**
@@ -238,7 +247,96 @@ export class DglabSocketV3 extends DglabSocketBase {
     // V3 只维护一个被控方 targetId
     this.pairedTargetId = targetId;
     this.setState(DGLAB_SOCKET_STATE.Paired);
+    this.device = this.createDevice(targetId);
     this.dispatch('client-attached', targetId);
+  }
+
+  /**
+   * 处理 V3 转发消息
+   * @param frame 消息帧
+   */
+  private handleForwardMessage(frame: V3ServerFrame): void {
+    if ('message' in frame && typeof frame.message === 'string') {
+      const device = this.parseDeviceMessage(frame.message);
+      if (device) this.dispatchDevice(device);
+    }
+
+    this.dispatch(
+      'data',
+      'message' in frame ? frame.message : frame,
+      'targetId' in frame && typeof frame.targetId === 'string'
+        ? frame.targetId
+        : undefined,
+    );
+  }
+
+  /**
+   * 解析 APP 回传的设备状态消息
+   * @param message 消息内容
+   */
+  private parseDeviceMessage(
+    message: string,
+  ): V3DeviceEventPayload | undefined {
+    const match = /^strength-(\d+)-(\d+)-(\d+)-(\d+)$/.exec(message);
+    if (!match || !this.pairedTargetId) return undefined;
+
+    const [, aStrength, bStrength, aSoftLimit, bSoftLimit] = match;
+    const nextProps: NonNullable<V3DeviceInfo['props']> = {
+      strength: {
+        A: Number(aStrength),
+        B: Number(bStrength),
+      },
+      softLimit: {
+        A: Number(aSoftLimit),
+        B: Number(bSoftLimit),
+      },
+    };
+    const previousProps = this.device?.props;
+    const props: NonNullable<V3DeviceInfo['props']> = {};
+
+    if (previousProps?.strength?.A !== nextProps.strength?.A) {
+      props.strength = { ...(props.strength ?? {}), A: nextProps.strength?.A };
+    }
+    if (previousProps?.strength?.B !== nextProps.strength?.B) {
+      props.strength = { ...(props.strength ?? {}), B: nextProps.strength?.B };
+    }
+    if (previousProps?.softLimit?.A !== nextProps.softLimit?.A) {
+      props.softLimit = {
+        ...(props.softLimit ?? {}),
+        A: nextProps.softLimit?.A,
+      };
+    }
+    if (previousProps?.softLimit?.B !== nextProps.softLimit?.B) {
+      props.softLimit = {
+        ...(props.softLimit ?? {}),
+        B: nextProps.softLimit?.B,
+      };
+    }
+
+    this.device = {
+      ...(this.device ?? this.createDevice(this.pairedTargetId)),
+      props: nextProps,
+    };
+
+    return Object.keys(props).length > 0
+      ? { clientId: this.pairedTargetId, props }
+      : undefined;
+  }
+
+  /**
+   * 派发 V3 单设备事件
+   * @param device 设备事件
+   */
+  private dispatchDevice(device: V3DeviceEventPayload): void {
+    this.dispatch('device', device, device.clientId);
+  }
+
+  private createDevice(clientId: string): V3DeviceInfo {
+    return {
+      clientId,
+      name: 'DGLAB V3',
+      type: 'DGLAB_V3',
+    };
   }
 }
 
