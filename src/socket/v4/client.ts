@@ -92,11 +92,13 @@ export class V4Client {
       const current = this.devices[index];
       this.devices[index] = {
         ...current,
-        props: { ...(current.props ?? {}), ...(slot.props ?? {}) },
-        slotState: {
-          ...(current.slotState ?? {}),
-          ...(slot.slotState ?? {}),
-        },
+        props: this.mergePatch(current.props ?? {}, slot.props ?? {}) as
+          | V4DeviceInfo['props']
+          | undefined,
+        slotState: this.mergePatch(
+          current.slotState ?? {},
+          slot.slotState ?? {},
+        ) as V4DeviceInfo['slotState'],
       };
     }
   }
@@ -151,5 +153,15 @@ export class V4Client {
     result: unknown,
   ): result is { devices: (V4DeviceDescriptor | V4DeviceInfo)[] } {
     return isRecord(result) && Array.isArray(result.devices);
+  }
+
+  private mergePatch(current: unknown, patch: unknown): unknown {
+    if (!isRecord(current) || !isRecord(patch)) return patch;
+
+    const next: Record<string, unknown> = { ...current };
+    for (const [key, value] of Object.entries(patch)) {
+      next[key] = this.mergePatch(current[key], value);
+    }
+    return next;
   }
 }

@@ -1,4 +1,4 @@
-import { createNamedError } from '@/shared';
+import { createNamedError, isRecord } from '@/shared';
 import { DglabSocketBase } from '@/socket/base';
 import {
   DGLAB_SOCKET_STATE,
@@ -26,6 +26,13 @@ import type {
   V4ServerFrame,
 } from './types';
 import { V4ActionType as V4Action } from './types';
+
+const DEVICE_PATCH_UNCHANGED = Symbol('device-patch-unchanged');
+
+type DevicePatchValue =
+  | typeof DEVICE_PATCH_UNCHANGED
+  | Record<string, unknown>
+  | unknown;
 
 export class DglabSocketV4 extends DglabSocketBase {
   private _targetId?: string; // 被控端 ID
@@ -504,14 +511,35 @@ export class DglabSocketV4 extends DglabSocketBase {
     };
     if (previous.name !== device.name) event.name = device.name;
     if (previous.type !== device.type) event.type = device.type;
-    if (!this.isEqualValue(previous.props, device.props)) {
-      event.props = device.props;
+    const propsPatch = this.createPatchValue(previous.props, device.props);
+    if (propsPatch !== DEVICE_PATCH_UNCHANGED) {
+      event.props = propsPatch as V4DeviceInfo['props'];
     }
-    if (!this.isEqualValue(previous.slotState, device.slotState)) {
-      event.slotState = device.slotState;
+    const slotStatePatch = this.createPatchValue(
+      previous.slotState,
+      device.slotState,
+    );
+    if (slotStatePatch !== DEVICE_PATCH_UNCHANGED) {
+      event.slotState = slotStatePatch as V4DeviceInfo['slotState'];
     }
 
     return Object.keys(event).length > 1 ? event : undefined;
+  }
+
+  private createPatchValue(previous: unknown, next: unknown): DevicePatchValue {
+    if (this.isEqualValue(previous, next)) return DEVICE_PATCH_UNCHANGED;
+
+    if (!isRecord(previous) || !isRecord(next)) return next;
+
+    const patch: Record<string, unknown> = {};
+    const keys = new Set([...Object.keys(previous), ...Object.keys(next)]);
+    for (const key of keys) {
+      const value = key in next ? next[key] : undefined;
+      const childPatch = this.createPatchValue(previous[key], value);
+      if (childPatch !== DEVICE_PATCH_UNCHANGED) patch[key] = childPatch;
+    }
+
+    return Object.keys(patch).length > 0 ? patch : DEVICE_PATCH_UNCHANGED;
   }
 
   private isEqualValue(left: unknown, right: unknown): boolean {
