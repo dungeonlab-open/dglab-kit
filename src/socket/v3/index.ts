@@ -1,9 +1,10 @@
 import { createNamedError } from '@/shared';
 import {
   DGLAB_SOCKET_STATE,
+  DglabSocketDeviceType,
   type DglabSocketConnectResult,
   type DglabSocketIncoming,
-} from '@/socket';
+} from '@/socket/base/types';
 import { DglabSocketBase } from '@/socket/base';
 import type {
   V3Channel,
@@ -180,7 +181,7 @@ export class DglabSocketV3 extends DglabSocketBase {
         this.setState(DGLAB_SOCKET_STATE.WaitingForPeer);
         if (typeof frame.targetId === 'string') {
           this.dispatchDevice(
-            { type: 'COYOTE_030', removed: true },
+            { type: DglabSocketDeviceType.COYOTE_030, removed: true },
             frame.targetId,
           );
           this.dispatch('client-disconnected', frame.targetId);
@@ -336,7 +337,7 @@ export class DglabSocketV3 extends DglabSocketBase {
     };
 
     return Object.keys(props).length > 0
-      ? { type: 'COYOTE_030', props }
+      ? { type: DglabSocketDeviceType.COYOTE_030, props }
       : undefined;
   }
 
@@ -355,7 +356,7 @@ export class DglabSocketV3 extends DglabSocketBase {
 
   private createDevice(): V3DeviceInfo {
     return {
-      type: 'COYOTE_030',
+      type: DglabSocketDeviceType.COYOTE_030,
     };
   }
 }

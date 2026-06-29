@@ -1,3 +1,5 @@
+import type { DglabSocketDeviceType } from '@/socket/base/types';
+
 /**
  * V3 服务端帧
  */
@@ -81,7 +83,7 @@ export type V3WaveChannel = 'A' | 'B';
  * V3 单设备信息
  */
 export interface V3DeviceInfo {
-  type: 'COYOTE_030'; // V3 仅支持郊狼 3.0
+  type: DglabSocketDeviceType.COYOTE_030; // V3 仅支持郊狼 3.0
   props?: {
     strength?: {
       A?: number;
@@ -100,7 +102,10 @@ export interface V3DeviceInfo {
  */
 export type V3DeviceEventPayload =
   | V3DeviceInfo
-  | (Partial<V3DeviceInfo> & { type: 'COYOTE_030'; removed?: true });
+  | (Partial<V3DeviceInfo> & {
+      type: DglabSocketDeviceType.COYOTE_030;
+      removed?: true;
+    });
 
 /**
  * V3 波形选项

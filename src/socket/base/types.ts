@@ -1,9 +1,11 @@
 import type {
   V3DeviceEventPayload,
   V3DeviceInfo,
+} from '../v3/types';
+import type {
   V4DeviceEventPayload,
   V4DeviceInfo,
-} from '@/socket';
+} from '../v4/types';
 
 export type DglabSocketDeviceEventPayload =
   | V3DeviceEventPayload
@@ -163,4 +165,11 @@ export interface DglabSocketEventMap {
   devices: (devices: DglabSocketDeviceInfo[], clientId: string) => void;
   'client-attached': (clientId: string) => void;
   'client-disconnected': (clientId: string) => void;
+}
+
+export enum DglabSocketDeviceType {
+  COYOTE_020 = 'COYOTE_020', // 郊狼 2.0
+  COYOTE_030 = 'COYOTE_030', // 郊狼 3.0
+  BMTR_1 = 'BMTR_1', // 灵猫 1.0
+  OVC_1 = 'OVC_1', // 负鼠 1.0
 }

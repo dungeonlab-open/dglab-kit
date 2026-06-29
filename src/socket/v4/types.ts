@@ -1,3 +1,5 @@
+import type { DglabSocketDeviceType } from '@/socket/base/types';
+
 /**
  * V4 协议帧类型
  */
@@ -120,22 +122,12 @@ export interface V4RpcResponse<TResult = unknown> {
 }
 
 /**
- * V4 设备类型
- */
-export type V4DeviceType =
-  | 'COYOTE_020' // 郊狼 2.0
-  | 'COYOTE_030' // 郊狼 3.0
-  | 'BMTR_1' // 灵猫
-  | 'OVC_1' // 负鼠
-  | (string & {});
-
-/**
  * V4 设备描述
  */
 export interface V4DeviceDescriptor {
   slotId: string; // 真实 slotId，设备指令使用它定位设备
   name: string; // 设备展示名
-  type: V4DeviceType; // 设备类型
+  type: DglabSocketDeviceType; // 设备类型
 }
 
 /**
