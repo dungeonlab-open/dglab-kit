@@ -179,7 +179,10 @@ export class DglabSocketV3 extends DglabSocketBase {
         this.device = undefined;
         this.setState(DGLAB_SOCKET_STATE.WaitingForPeer);
         if (typeof frame.targetId === 'string') {
-          this.dispatchDevice({ clientId: frame.targetId, removed: true });
+          this.dispatchDevice(
+            { type: 'COYOTE_030', removed: true },
+            frame.targetId,
+          );
           this.dispatch('client-disconnected', frame.targetId);
         }
         return;
@@ -247,7 +250,7 @@ export class DglabSocketV3 extends DglabSocketBase {
     // V3 只维护一个被控方 targetId
     this.pairedTargetId = targetId;
     this.setState(DGLAB_SOCKET_STATE.Paired);
-    this.device = this.createDevice(targetId);
+    this.device = this.createDevice();
     this.dispatch('client-attached', targetId);
   }
 
@@ -328,28 +331,31 @@ export class DglabSocketV3 extends DglabSocketBase {
     }
 
     this.device = {
-      ...(this.device ?? this.createDevice(this.pairedTargetId)),
+      ...(this.device ?? this.createDevice()),
       props: nextProps,
     };
 
     return Object.keys(props).length > 0
-      ? { clientId: this.pairedTargetId, props }
+      ? { type: 'COYOTE_030', props }
       : undefined;
   }
 
   /**
    * 派发 V3 单设备事件
    * @param device 设备事件
+   * @param clientId 被控端 ID
    */
-  private dispatchDevice(device: V3DeviceEventPayload): void {
-    this.dispatch('device', device, device.clientId);
+  private dispatchDevice(
+    device: V3DeviceEventPayload,
+    clientId = this.pairedTargetId,
+  ): void {
+    if (!clientId) return;
+    this.dispatch('device', device, clientId);
   }
 
-  private createDevice(clientId: string): V3DeviceInfo {
+  private createDevice(): V3DeviceInfo {
     return {
-      clientId,
-      name: 'DGLAB V3',
-      type: 'DGLAB_V3',
+      type: 'COYOTE_030',
     };
   }
 }

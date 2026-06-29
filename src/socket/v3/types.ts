@@ -81,9 +81,7 @@ export type V3WaveChannel = 'A' | 'B';
  * V3 单设备信息
  */
 export interface V3DeviceInfo {
-  clientId: string; // V3 被控端 ID
-  name: 'DGLAB V3';
-  type: 'DGLAB_V3';
+  type: 'COYOTE_030'; // V3 仅支持郊狼 3.0
   props?: {
     strength?: {
       A?: number;
@@ -102,7 +100,7 @@ export interface V3DeviceInfo {
  */
 export type V3DeviceEventPayload =
   | V3DeviceInfo
-  | (Partial<V3DeviceInfo> & { clientId: string; removed?: true });
+  | (Partial<V3DeviceInfo> & { type: 'COYOTE_030'; removed?: true });
 
 /**
  * V3 波形选项
