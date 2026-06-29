@@ -1,10 +1,11 @@
 import { createNamedError } from '@/shared';
+import { DglabSocketBase } from '@/socket/base';
 import {
   DGLAB_SOCKET_STATE,
   type DglabSocketConnectResult,
+  type DglabSocketDeviceEventPayload,
   type DglabSocketIncoming,
-} from '@/socket';
-import { DglabSocketBase } from '@/socket/base';
+} from '@/socket/base/types';
 import { V4Client } from './client';
 import { V4Rpc } from './rpc';
 import type {
@@ -12,7 +13,6 @@ import type {
   V4AppendPulseDataOptions,
   V4Channel,
   V4ClearOperateOptions,
-  V4DeviceEventPayload,
   V4DeviceInfo,
   V4DeviceOperate,
   V4DevicesGetResult,
@@ -446,7 +446,7 @@ export class DglabSocketV4 extends DglabSocketBase {
   private createDeviceEvents(
     data: unknown,
     client: V4Client | undefined,
-  ): V4DeviceEventPayload[] {
+  ): DglabSocketDeviceEventPayload[] {
     if (!this.isEventRecord(data)) return [];
 
     if (data.ev === 'devices.snapshot') {
@@ -485,7 +485,7 @@ export class DglabSocketV4 extends DglabSocketBase {
 
     if (data.ev === 'slots.patch') {
       return Array.isArray(data.slots)
-        ? (data.slots as V4DeviceEventPayload[])
+        ? (data.slots as DglabSocketDeviceEventPayload[])
         : [];
     }
 
@@ -495,7 +495,7 @@ export class DglabSocketV4 extends DglabSocketBase {
   private createDeviceUpsertEvent(
     device: V4DeviceInfo,
     client: V4Client | undefined,
-  ): V4DeviceEventPayload | undefined {
+  ): DglabSocketDeviceEventPayload | undefined {
     const previous = client?.getDevice(device.slotId);
     if (!previous) return device;
 

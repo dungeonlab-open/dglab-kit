@@ -1,11 +1,12 @@
 import { createNamedError } from '@/shared';
+import { DglabSocketBase } from '@/socket/base';
 import {
   DGLAB_SOCKET_STATE,
-  DglabSocketDeviceType,
   type DglabSocketConnectResult,
+  type DglabSocketDeviceEventPayload,
+  DglabSocketDeviceType,
   type DglabSocketIncoming,
 } from '@/socket/base/types';
-import { DglabSocketBase } from '@/socket/base';
 import type {
   V3Channel,
   V3DeviceEventPayload,
@@ -347,7 +348,7 @@ export class DglabSocketV3 extends DglabSocketBase {
    * @param clientId 被控端 ID
    */
   private dispatchDevice(
-    device: V3DeviceEventPayload,
+    device: DglabSocketDeviceEventPayload,
     clientId = this.pairedTargetId,
   ): void {
     if (!clientId) return;

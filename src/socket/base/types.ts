@@ -1,15 +1,13 @@
 import type {
   V3DeviceEventPayload,
   V3DeviceInfo,
-} from '../v3/types';
-import type {
   V4DeviceEventPayload,
   V4DeviceInfo,
-} from '../v4/types';
+} from '@/socket';
 
-export type DglabSocketDeviceEventPayload =
-  | V3DeviceEventPayload
-  | V4DeviceEventPayload;
+export type DglabSocketDeviceEventPayload = {
+  removed?: true;
+} & (V3DeviceEventPayload | V4DeviceEventPayload);
 
 export type DglabSocketDeviceInfo = V3DeviceInfo | V4DeviceInfo;
 

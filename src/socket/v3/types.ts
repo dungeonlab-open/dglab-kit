@@ -104,7 +104,6 @@ export type V3DeviceEventPayload =
   | V3DeviceInfo
   | (Partial<V3DeviceInfo> & {
       type: DglabSocketDeviceType.COYOTE_030;
-      removed?: true;
     });
 
 /**

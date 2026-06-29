@@ -214,7 +214,7 @@ export type V4EventPayload =
  */
 export type V4DeviceEventPayload =
   | V4DeviceInfo
-  | (Partial<V4DeviceInfo> & { slotId: string; removed?: true });
+  | (Partial<V4DeviceInfo> & { slotId: string });
 
 /**
  * V4 发送选项
