@@ -158,6 +158,7 @@ export interface DglabSocketEventMap {
   error: (error: unknown) => void;
   frame: (frame: unknown) => void;
   data: (data: unknown, clientId?: string) => void;
+  action: (action: number) => void;
   device: (event: DglabSocketDeviceEventPayload, clientId: string) => void;
   devices: (devices: DglabSocketDeviceInfo[], clientId: string) => void;
   'client-attached': (clientId: string) => void;

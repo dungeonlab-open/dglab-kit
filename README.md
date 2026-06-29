@@ -81,6 +81,7 @@ console.log(socket.state === DGLAB_SOCKET_STATE.WaitingForPeer);
 | `message`             | `(data, raw) => void`         | 收到原始消息文本      |
 | `frame`               | `(frame) => void`             | 收到已解析协议帧      |
 | `data`                | `(data, clientId?) => void`   | 收到被控端上行应用数据   |
+| `action`              | `(action) => void`            | APP 自定义动作，V4 来自 `custom.action`，V3 来自 `feedback-*` |
 | `device`              | `(device, clientId) => void`  | 单设备事件，新增为完整数据，更新为增量 |
 | `devices`             | `(devices, clientId) => void` | V4 当前完整设备列表更新  |
 | `client-attached`     | `(clientId) => void`          | 被控端接入         |
@@ -131,6 +132,10 @@ socket.on('devices', (devices, clientId) => {
 
 socket.on('device', (device, clientId) => {
   console.log('单设备变化:', clientId, device);
+});
+
+socket.on('action', (action) => {
+  console.log('APP 自定义动作:', action);
 });
 ```
 
@@ -203,6 +208,10 @@ socket.on('client-attached', () => {
     time: 5,
     data: COYOTE_WAVEFORMS[COYOTE_WAVEFORM.BUBBLE].raw,
   });
+});
+
+socket.on('action', (action) => {
+  console.log('APP 按钮反馈:', action);
 });
 ```
 

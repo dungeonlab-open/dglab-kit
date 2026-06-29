@@ -12,10 +12,10 @@ import type {
   V4AppendPulseDataOptions,
   V4Channel,
   V4ClearOperateOptions,
-  V4DeviceOperate,
-  V4DevicesGetResult,
   V4DeviceEventPayload,
   V4DeviceInfo,
+  V4DeviceOperate,
+  V4DevicesGetResult,
   V4HelloFrame,
   V4MessageFrame,
   V4OperateOptions,
@@ -405,6 +405,10 @@ export class DglabSocketV4 extends DglabSocketBase {
     // 派发所有消息
     this.dispatch('data', data, frame.clientId);
 
+    if (this.isCustomActionEvent(data)) {
+      this.dispatch('action', data.action);
+    }
+
     const client = this.clientMap.get(frame.clientId);
     for (const event of this.createDeviceEvents(data, client)) {
       this.dispatch('device', event, frame.clientId);
@@ -456,8 +460,10 @@ export class DglabSocketV4 extends DglabSocketBase {
       const removed =
         client?.devices
           .filter((device) => !nextSlotIds.has(device.slotId))
-          .map((device) => ({ slotId: device.slotId, removed: true as const })) ??
-        [];
+          .map((device) => ({
+            slotId: device.slotId,
+            removed: true as const,
+          })) ?? [];
       return [...changed, ...removed];
     }
 
@@ -524,6 +530,18 @@ export class DglabSocketV4 extends DglabSocketBase {
       data.t === 'ev' &&
       'ev' in data &&
       typeof data.ev === 'string'
+    );
+  }
+
+  private isCustomActionEvent(data: unknown): data is {
+    t: 'ev';
+    ev: 'custom.action';
+    action: number;
+  } {
+    return (
+      this.isEventRecord(data) &&
+      data.ev === 'custom.action' &&
+      typeof data.action === 'number'
     );
   }
 

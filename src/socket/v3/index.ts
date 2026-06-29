@@ -257,6 +257,9 @@ export class DglabSocketV3 extends DglabSocketBase {
    */
   private handleForwardMessage(frame: V3ServerFrame): void {
     if ('message' in frame && typeof frame.message === 'string') {
+      const action = this.parseActionMessage(frame.message);
+      if (action !== undefined) this.dispatch('action', action);
+
       const device = this.parseDeviceMessage(frame.message);
       if (device) this.dispatchDevice(device);
     }
@@ -268,6 +271,17 @@ export class DglabSocketV3 extends DglabSocketBase {
         ? frame.targetId
         : undefined,
     );
+  }
+
+  /**
+   * 解析 APP 按钮反馈消息
+   * @param message 消息内容
+   */
+  private parseActionMessage(message: string): number | undefined {
+    const match = /^feedback-(\d+)$/.exec(message);
+    if (!match) return undefined;
+
+    return Number(match[1]);
   }
 
   /**

@@ -21,6 +21,7 @@ const socketEvents = [
   'error',
   'frame',
   'data',
+  'action',
   'device',
   'devices',
   'client-attached',
