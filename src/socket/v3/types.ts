@@ -72,10 +72,13 @@ export interface V3LegacyCommand {
 
 /**
  * V3 通道定义
- * - 1: A
- * - 2: B
+ * - A: A 通道
+ * - B: B 通道
  */
-export type V3Channel = 1 | 2;
+export enum V3Channel {
+  A = 1,
+  B = 2,
+}
 
 export type V3WaveChannel = 'A' | 'B';
 

@@ -188,6 +188,7 @@ import {
   COYOTE_WAVEFORMS,
   DGLAB_SOCKET_VERSION,
   DglabSocket,
+  V3Channel,
 } from 'dglab-kit';
 
 const socket = new DglabSocket({
@@ -199,9 +200,9 @@ const { targetId } = await socket.connect();
 console.log('将控制方 ID 交给被控端:', targetId);
 
 socket.on('client-attached', () => {
-  socket.setStrength(1, 20);
-  socket.addStrength(1, 3);
-  socket.reduceStrength(2, 1);
+  socket.setStrength(V3Channel.A, 20);
+  socket.addStrength(V3Channel.A, 3);
+  socket.reduceStrength(V3Channel.B, 1);
 
   socket.sendPulse({
     channel: 'A',
@@ -222,11 +223,13 @@ socket.on('action', (action) => {
 | `targetId`                       | 当前控制方 ID，连接成功后可用           |
 | `pairedClientId`                 | 已配对被控端 ID                  |
 | `send(data)`                     | 发送旧协议自定义数据                 |
-| `addStrength(channel, step?)`    | 增加强度，`channel` 为 `1` 或 `2` |
+| `addStrength(channel, step?)`    | 增加强度                       |
 | `reduceStrength(channel, step?)` | 减少强度                       |
 | `setStrength(channel, strength)` | 设置强度                       |
 | `sendPulse(options)`             | 下发波形                       |
 | `clearPulse(channel)`            | 清空通道波形                     |
+
+V3 的强度和清理方法中，`channel` 使用 `V3Channel.A` 或 `V3Channel.B`。
 
 V3 的 `sendPulse` 参数为 `{ channel, time, data }`：
 

@@ -56,7 +56,7 @@ export class DglabSocketV3 extends DglabSocketBase {
 
   /**
    * 增加/减少通道强度
-   * @param channel 通道 - 1: A, 2: B
+   * @param channel 通道
    * @param step 步长
    * @return void
    */
@@ -80,7 +80,7 @@ export class DglabSocketV3 extends DglabSocketBase {
 
   /**
    * 减少通道强度
-   * @param channel 通道 - 1: A, 2: B
+   * @param channel 通道
    * @param step 步长
    * @return void
    * */
@@ -90,7 +90,7 @@ export class DglabSocketV3 extends DglabSocketBase {
 
   /**
    * 设置通道强度
-   * @param channel 通道 - 1: A, 2: B
+   * @param channel 通道
    * @param strength 强度
    * @return void
    */
@@ -106,7 +106,7 @@ export class DglabSocketV3 extends DglabSocketBase {
 
   /**
    * 清空通道波形
-   * @param channel 通道 - 1: A, 2: B
+   * @param channel 通道
    * @return void
    */
   clearPulse(channel: V3Channel): void {
