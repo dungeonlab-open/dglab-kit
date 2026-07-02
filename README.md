@@ -1,54 +1,54 @@
 # DGLAB KIT
 
+DGLAB KIT 是 DG-LAB 4 APP 的 TypeScript 工具包，旨在帮助您使用流行的 UI 框架和 NodeJS 运行时通过 WebSocket 协议配合 DG-LAB 4 APP 控制您的地牢实验室设备。
+
 ## 安装
+
+使用 NodeJS 22+ 和 Bun 包管理器安装
 
 ```bash
 bun install
 ```
 
-在项目中使用包导出：
+或者使用传统包管理器 `pnpm`、 `yarn`、`npm` 安装
 
-```ts
-import { DglabSocket } from 'dglab-kit';
+```bash 
+# pnpm
+pnpm add dglab-kit
+# yarn
+yarn add dglab-kit
+# npm
+npm install dglab-kit
 ```
 
-## 构建与测试
-
-```bash
-bun run build
-bun run test:types
-bun run lint
-```
-
-## Socket SDK
+## WebSocket SDK
 
 ### 基础连接
 
 ```ts
 import { DGLAB_SOCKET_STATE, DglabSocket } from 'dglab-kit';
 
-const socket = new DglabSocket({
-  url: 'ws://127.0.0.1:9998',
-  connectTimeout: 8000,
-  responseTimeout: 8000,
-});
+const socket = new DglabSocket({ url: 'ws://127.0.0.1:9998' });
 
 socket.on('state', (state, previous) => {
   console.log('socket state:', previous, '->', state);
 });
 
-socket.on('error', (error) => {
-  console.error('socket error:', error);
-});
-
 const { targetId, secret } = await socket.connect();
 
-console.log('控制方 ID:', targetId);
+console.log('被控方配对 ID:', targetId);
 console.log('HTTP 鉴权密钥:', secret);
-console.log(socket.state === DGLAB_SOCKET_STATE.WaitingForPeer);
 ```
 
-`connect()` 返回的 `targetId` 是当前控制方 ID，需要展示给被控端或通过二维码传给被控端。V4 还会返回 `secret`，可用于服务端 HTTP 接口鉴权。
+V4 协议支持 HTTP 协议下发指令至 Socket 服务器，通过设置请求头 `apikey` 进行鉴权。 
+
+#### 构造 DG-LAB 4 APP Socket 控制二维码
+
+V4 协议支持任意 URL Path，使用 URL Query 构造 `tid` 传入 targetId 进行配对。你可以拼接如下 URL 生成二维码，供被控端扫描或通过浏览器自动跳转至 DG-LAB 4 APP：
+
+```ts
+const qrcode = `https://dungeon-lab.cn/s/?v=1&action=socket&url=${encodeURIComponent('wss://ws.dungeon-lab.cn/?tid=' + targetId)}`;
+```
 
 ### 连接选项
 
@@ -60,7 +60,7 @@ console.log(socket.state === DGLAB_SOCKET_STATE.WaitingForPeer);
 | `responseTimeout` | `number`               | V4 等待 RPC 响应的默认超时时间，单位 ms，默认 `8000` |
 | `version`         | `DGLAB_SOCKET_VERSION` | 协议版本，默认 `DGLAB_SOCKET_VERSION.V4`   |
 
-### 状态
+### SOCKET 状态
 
 | 状态                                  | 说明          |
 |-------------------------------------|-------------|
@@ -70,22 +70,22 @@ console.log(socket.state === DGLAB_SOCKET_STATE.WaitingForPeer);
 | `DGLAB_SOCKET_STATE.Paired`         | 已配对，可下发控制指令 |
 | `DGLAB_SOCKET_STATE.Disconnected`   | 已断开         |
 
-### 通用事件
+### 事件
 
-| 事件                    | 回调                            | 说明            |
-|-----------------------|-------------------------------|---------------|
-| `state`               | `(state, previous) => void`   | Socket 状态变化   |
-| `open`                | `(event) => void`             | WebSocket 已打开 |
-| `close`               | `(event) => void`             | WebSocket 已关闭 |
-| `error`               | `(error) => void`             | 连接或协议错误       |
-| `message`             | `(data, raw) => void`         | 收到原始消息文本      |
-| `frame`               | `(frame) => void`             | 收到已解析协议帧      |
-| `data`                | `(data, clientId?) => void`   | 收到被控端上行应用数据   |
+| 事件                    | 回调                            | 说明                                                 |
+|-----------------------|-------------------------------|----------------------------------------------------|
+| `state`               | `(state, previous) => void`   | Socket 状态变化                                        |
+| `open`                | `(event) => void`             | WebSocket 已打开                                      |
+| `close`               | `(event) => void`             | WebSocket 已关闭                                      |
+| `error`               | `(error) => void`             | 连接或协议错误                                            |
+| `message`             | `(data, raw) => void`         | 收到原始消息文本                                           |
+| `frame`               | `(frame) => void`             | 收到已解析协议帧                                           |
+| `data`                | `(data, clientId?) => void`   | 收到被控端上行应用数据                                        |
 | `action`              | `(action) => void`            | APP 自定义动作，V4 来自 `custom.action`，V3 来自 `feedback-*` |
-| `device`              | `(device, clientId) => void`  | 单设备事件，新增为完整数据，更新为增量 |
-| `devices`             | `(devices, clientId) => void` | V4 当前完整设备列表更新  |
-| `client-attached`     | `(clientId) => void`          | 被控端接入         |
-| `client-disconnected` | `(clientId) => void`          | 被控端断开         |
+| `device`              | `(device, clientId) => void`  | 单设备事件，新增为完整数据，更新为增量                                |
+| `devices`             | `(devices, clientId) => void` | V4 当前完整设备列表更新                                      |
+| `client-attached`     | `(clientId) => void`          | 被控端接入                                              |
+| `client-disconnected` | `(clientId) => void`          | 被控端断开                                              |
 
 ## V4 用法
 
@@ -157,8 +157,6 @@ socket.on('action', (action) => {
 | `sendPulse(clientId, slotId, channel, duration, frames, options)`       | 下发波形帧                |
 | `clearPulse(clientId, slotId, channel)`                                 | 清理指定设备通道波形           |
 | `clearOperate(clientId, options?)`                                      | 清理任务，可清理全部、指定设备或指定通道 |
-
-`channel` 使用 `V4Channel.A` 或 `V4Channel.B`。V4 的 `sendPulse` 中，`frames` 可直接使用内置波形的 `raw`：
 
 ```ts
 await socket.sendPulse(
