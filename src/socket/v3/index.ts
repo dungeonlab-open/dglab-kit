@@ -110,10 +110,11 @@ export class DglabSocketV3 extends DglabSocketBase {
    * @return void
    */
   clearPulse(channel: V3Channel): void {
-    // 旧协议 type 4 直接透传清理指令
+    // 参考 V3 服务端通过 channel 字段决定 clear-1 / clear-2
     this.send({
       type: 4,
-      message: `clear-${channel}`,
+      channel,
+      message: 'clear',
     });
   }
 
@@ -189,6 +190,7 @@ export class DglabSocketV3 extends DglabSocketBase {
         }
         return;
       case 'msg':
+      case 4:
         this.handleForwardMessage(frame);
         return;
       case 'error':
@@ -298,6 +300,7 @@ export class DglabSocketV3 extends DglabSocketBase {
     message: string,
   ): V3DeviceEventPayload | undefined {
     const match = /^strength-(\d+)-(\d+)-(\d+)-(\d+)$/.exec(message);
+
     if (!match || !this.pairedTargetId) return undefined;
 
     const [, aStrength, bStrength, aSoftLimit, bSoftLimit] = match;
