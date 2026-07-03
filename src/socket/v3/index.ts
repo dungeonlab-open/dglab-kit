@@ -253,6 +253,7 @@ export class DglabSocketV3 extends DglabSocketBase {
     this.pairedTargetId = targetId;
     this.setState(DGLAB_SOCKET_STATE.Paired);
     this.device = this.createDevice();
+    this.dispatchDevice(this.device, targetId);
     this.dispatch('client-attached', targetId);
   }
 
