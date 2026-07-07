@@ -8,6 +8,7 @@ export type V4ServerFrame<TData = unknown> =
   | V4ClientAttachedFrame
   | V4ClientDisconnectedFrame
   | V4HeartbeatFrame
+  | V4PongFrame
   | V4IdleTimeoutFrame
   | V4ErrorFrame
   | V4MessageFrame<TData>;
@@ -45,6 +46,13 @@ export interface V4HeartbeatFrame {
 }
 
 /**
+ * V4 服务端级 PONG 帧
+ */
+export interface V4PongFrame {
+  type: 'pong';
+}
+
+/**
  * V4 空闲超时帧（控制方空闲超时，随后连接会被服务端关闭）
  */
 export interface V4IdleTimeoutFrame {
@@ -67,13 +75,17 @@ export interface V4ErrorFrame {
 export interface V4MessageFrame<TData = unknown> {
   type: 'message';
   clientId: string; // 控制方发送时表示目标，被控方上报时表示来源
-  data: TData; // 应用层负载
+  data: TData; // 被控方负载
 }
 
 /**
  * V4 RPC 方法名
  */
-export type V4RpcMethod = 'devices.get' | 'device.op' | 'device.op.clear';
+export type V4RpcMethod =
+  | 'devices.get'
+  | 'device.op'
+  | 'device.op.clear'
+  | 'ping';
 
 /**
  * V4 动作类型

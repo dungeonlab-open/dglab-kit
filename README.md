@@ -148,8 +148,9 @@ socket.on('action', (action) => {
 | `clientIds`                                                             | 已接入被控端 ID 列表         |
 | `clients`                                                               | 已接入被控端状态列表           |
 | `getClient(clientId)`                                                   | 获取指定被控端状态            |
+| `ping(clientId, options)`                                               | 请求被控端响应，返回延迟 ms      |
 | `requestDevices(clientId)`                                              | 请求被控端最新设备列表          |
-| `send(clientId, data, options)`                                         | 发送自定义 V4 RPC 或应用层数据  |
+| `send(clientId, data, options)`                                         | 发送自定义 V4 RPC 或被控端数据  |
 | `resetIntensity(clientId, slotId, channel, options)`                    | 设置通道强度为 0            |
 | `addIntensity(clientId, slotId, channel, value, options)`               | 增加强度                 |
 | `reduceStrength(clientId, slotId, channel, value, options)`             | 减少强度                 |

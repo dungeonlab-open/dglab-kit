@@ -28,6 +28,8 @@ import type {
 import { V4ActionType as V4Action } from './types';
 
 const DEVICE_PATCH_UNCHANGED = Symbol('device-patch-unchanged');
+const SERVER_PING_INTERVAL = 2_000;
+const MAX_MISSED_SERVER_PONGS = 3;
 
 type DevicePatchValue =
   | typeof DEVICE_PATCH_UNCHANGED
@@ -40,6 +42,8 @@ export class DglabSocketV4 extends DglabSocketBase {
 
   private readonly clientMap = new Map<string, V4Client>(); // 已接入被控方集合
   readonly rpc = new V4Rpc((frame) => this.sendFrame(frame), this.options);
+  private serverPingTimer?: ReturnType<typeof setInterval>; // 服务端级 ping 定时器
+  private missedServerPongs = 0; // 连续未收到 pong 次数
 
   /**
    * 获取被控端 ID
@@ -115,6 +119,21 @@ export class DglabSocketV4 extends DglabSocketBase {
     options?: V4SendOptions,
   ): V4SendPromise<TResponse> {
     return this.rpc.send(clientId, data, options);
+  }
+
+  /**
+   * 检查被控方连接是否正常
+   * @param clientId 被控方 ID
+   * @param options 选项
+   * @return V4SendPromise<number>
+   */
+  ping(clientId: string, options?: V4SendOptions): V4SendPromise<number> {
+    return this.rpc.send(clientId, this.rpc.createRequest('ping'), options);
+  }
+
+  disconnect(code?: number, reason?: string): void {
+    this.stopServerPing();
+    super.disconnect(code, reason);
   }
 
   /**
@@ -338,6 +357,9 @@ export class DglabSocketV4 extends DglabSocketBase {
       case 'message':
         this.handleMessage(frame);
         return;
+      case 'pong':
+        this.missedServerPongs = 0;
+        return;
       case 'idle_timeout': // 控制方空闲超时
         this.handleSocketError(
           createNamedError('socket-idle-timeout', '控制方空闲超时'),
@@ -351,6 +373,7 @@ export class DglabSocketV4 extends DglabSocketBase {
   }
 
   protected onSocketClosed(): void {
+    this.stopServerPing();
     this._targetId = undefined;
     this._secret = undefined;
 
@@ -385,6 +408,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     this._secret = frame.secret;
 
     this.setState(DGLAB_SOCKET_STATE.WaitingForPeer);
+    this.startServerPing();
 
     this.resolveActiveConnect({
       targetId: frame.clientId,
@@ -400,6 +424,56 @@ export class DglabSocketV4 extends DglabSocketBase {
     const client = this.clientMap.get(clientId);
     client?.destroy();
     this.clientMap.delete(clientId);
+  }
+
+  /**
+   * 启动服务端级 ping，用于探测控制方到 V4 socket 服务器的连接
+   */
+  private startServerPing(): void {
+    this.stopServerPing();
+    this.missedServerPongs = 0;
+    this.serverPingTimer = setInterval(() => {
+      this.sendServerPing();
+    }, SERVER_PING_INTERVAL);
+  }
+
+  /**
+   * 停止服务端级 ping
+   */
+  private stopServerPing(): void {
+    if (this.serverPingTimer) clearInterval(this.serverPingTimer);
+    this.serverPingTimer = undefined;
+    this.missedServerPongs = 0;
+  }
+
+  /**
+   * 发送服务端级 ping，连续 3 次未收到 pong 时断开连接
+   */
+  private sendServerPing(): void {
+    if (this.missedServerPongs >= MAX_MISSED_SERVER_PONGS) {
+      this.disconnectForServerPingTimeout();
+      return;
+    }
+
+    try {
+      this.sendFrame({ type: 'ping' });
+      this.missedServerPongs += 1;
+    } catch (error) {
+      this.handleSocketError(error);
+      this.disconnectForServerPingTimeout();
+    }
+  }
+
+  /**
+   * 服务端级 ping 超时后断开连接
+   */
+  private disconnectForServerPingTimeout(): void {
+    this.stopServerPing();
+    this.handleSocketError(
+      createNamedError('socket-ping-timeout', '服务端 ping 超时'),
+    );
+    this.handleSocketClose(1000, 'ping_timeout');
+    this.socket?.close(1000, 'ping_timeout');
   }
 
   /**
