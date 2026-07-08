@@ -299,7 +299,7 @@ export class DglabSocketV3 extends DglabSocketBase {
   private parseDeviceMessage(
     message: string,
   ): V3DeviceEventPayload | undefined {
-    const match = /^strength-(\d+)+(\d+)+(\d+)+(\d+)$/.exec(message);
+    const match = /^strength-(\d+)\+(\d+)\+(\d+)\+(\d+)$/.exec(message);
 
     if (!match || !this.pairedTargetId) return undefined;
 
