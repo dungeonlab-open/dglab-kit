@@ -30,7 +30,6 @@
     "typescript": "^6.0.3",
     "eventemitter3": "^5.0.4"
   },
-  "private": true,
   "dependencies": {
     "ws": "^8.21.0"
   }
