@@ -7,7 +7,7 @@ SDK 当前主要提供两类能力：
 - **Socket SDK**：连接 V3 / V4 WebSocket 中继服务，完成 APP 配对、设备发现、强度控制、波形下发、任务清理和自定义反馈接收。
 - **Waveform SDK**：内置郊狼与负鼠波形数据，可直接作为 V3 / V4 波形下发参数使用。
 
-> 推荐优先使用 V4 协议。V4 支持 `1 控制方 : N APP 被控方`，并提供设备列表、插槽状态增量、RPC 响应、HTTP 下发等能力。V3 仅用于兼容旧版控制端。
+> 推荐优先使用 V4 协议。V4 支持 `1 控制方 : N APP 被控方`，并提供设备列表、设备状态增量、RPC 响应、HTTP 下发等能力。V3 仅用于兼容旧版控制端。
 
 ## 目录
 
@@ -58,7 +58,7 @@ npm install dglab-kit
 | `targetId` | 控制方连接成功后获得的配对 ID。把它交给 APP，被控方才能接入当前控制方                    |
 | `secret`   | 控制方连接成功后获得的 HTTP 鉴权密钥，对应 V4 `hello.apikey`                |
 | `clientId` | V4 中某个 APP 被控方的连接 ID。控制方给指定 APP 下发指令时必须传入它                |
-| `slotId`   | APP 暴露的设备插槽 ID。所有设备操作都通过 `slotId` 定位设备                    |
+| `slotId`   | APP 暴露的设备 ID。所有操作都通过 `slotId` 定位设备                        |
 | `channel`  | 设备通道。V4 使用 `V4Channel.A` / `V4Channel.B`，协议值分别是 `0` / `1` |
 
 V4 的连接关系如下：
@@ -700,11 +700,11 @@ RPC 响应字段：
 | 字段          | 类型       | 必填 | 说明                    |
 |-------------|----------|----|-----------------------|
 | `id`        | `number` | 否  | 设备序号；某些响应可能携带         |
-| `slotId`    | `string` | 是  | 设备真实插槽 ID，设备操作使用它定位设备 |
-| `name`      | `string` | 是  | 设备或插槽展示名称             |
+| `slotId`    | `string` | 是  | 设备真实设备 ID，设备操作使用它定位设备 |
+| `name`      | `string` | 是  | 设备展示名称                |
 | `type`      | `string` | 是  | 设备类型，例如 `COYOTE_030`  |
 | `props`     | `object` | 否  | 当前设备属性快照，完整设备信息中使用    |
-| `slotState` | `object` | 否  | 当前插槽状态快照，完整设备信息中使用    |
+| `slotState` | `object` | 否  | 当前设备状态快照，完整设备信息中使用    |
 
 `devices.snapshot.devices[]` 和 `devices.patch.added[]` 中的 `props`、`slotState` 是当前完整快照；`slots.patch.slots[]` 中的 `props`、`slotState` 是增量，只包含本 tick 发生变化的字段。控制方应按 `slotId` 对本地缓存做深合并。
 
@@ -768,7 +768,7 @@ APP 被控方会在设备列表变化时主动上报增量。
 
 ### `slots.patch`
 
-APP 被控方会按 tick 合并插槽状态并上报。
+APP 被控方会按 tick 合并设备状态并上报。
 
 ```json
 {
@@ -1015,12 +1015,12 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 
 ### 通用 `slotState`
 
-所有设备都会提供以下插槽状态字段：
+所有设备都会提供以下状态字段：
 
 | 字段          | 类型                                                                     | 说明                         |
 |-------------|------------------------------------------------------------------------|----------------------------|
 | `markLight` | `'yellow' \| 'green' \| 'red' \| 'purple' \| 'blue' \| 'cyan' \| null` | 设备灯颜色；未设置时通常回退为 `'yellow'` |
-| `hasDevice` | `boolean`                                                              | 插槽当前是否有真实设备连接              |
+| `hasDevice` | `boolean`                                                              | 当前设备是否已蓝牙连接                |
 
 ### Coyote V2 / Coyote V3 `props`
 
@@ -1121,7 +1121,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 
 ### 能收到 APP 接入，但控制不了设备
 
-V4 操作需要同时指定 APP 的 `clientId` 和设备的 `slotId`。`clientId` 标识哪个 APP，`slotId` 标识这个 APP 内的哪个设备插槽。不要把两者混用。
+V4 操作需要同时指定 APP 的 `clientId` 和设备的 `slotId`。`clientId` 标识哪个 APP，`slotId` 标识这个 APP 内的哪个设备。不要把两者混用。
 
 ### `device.op` 为什么没有立刻返回
 
