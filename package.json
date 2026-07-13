@@ -2,6 +2,7 @@
   "name": "dglab-kit",
   "version": "1.0.1",
   "type": "module",
+  "homepage": "https://www.npmjs.com/package/dglab-kit.git",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
