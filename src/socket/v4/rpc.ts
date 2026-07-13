@@ -21,6 +21,7 @@ export class V4Rpc {
   private readonly pending = new Map<string, V4PendingResponse>();
   private readonly sendFrame: (frame: unknown) => void;
   private readonly options: V4RpcOptions;
+  private requestIdCounter = 0;
 
   constructor(sendFrame: (frame: unknown) => void, options: V4RpcOptions = {}) {
     this.sendFrame = sendFrame;
@@ -36,11 +37,9 @@ export class V4Rpc {
     method: V4RpcMethod | (string & {}),
     data?: TData,
   ): V4RpcRequest<TData> {
-    const requestId = this.createRequestId();
     return {
       t: 'req',
-      reqId: requestId,
-      requestId,
+      reqId: this.createRequestId(),
       m: method,
       data,
     };
@@ -72,11 +71,12 @@ export class V4Rpc {
       let payload: V4AnyRpcPayload;
 
       if (isRecord(data)) {
-        payload = { ...data, requestId, reqId: requestId } as V4AnyRpcPayload;
+        const request: Record<string, unknown> = { ...data, reqId: requestId };
+        delete request.requestId;
+        payload = request;
       } else {
         payload = {
           t: 'req',
-          requestId,
           reqId: requestId,
           m: 'custom',
           data,
@@ -239,9 +239,8 @@ export class V4Rpc {
   }
 
   private createRequestId(): string {
-    return `v4-${Date.now().toString(36)}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+    this.requestIdCounter += 1;
+    return this.requestIdCounter.toString();
   }
 
   private responseTimeout(options?: V4SendOptions): number {

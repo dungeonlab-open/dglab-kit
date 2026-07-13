@@ -116,8 +116,8 @@ export enum V4Channel {
  */
 export interface V4RpcRequest<TData = unknown> {
   t: 'req'; // 请求类型标记
-  reqId?: string; // 推荐字段名，参考文档使用 reqId
-  requestId?: string; // 测试服务兼容字段，服务端等待逻辑识别 requestId
+  reqId?: string; // 正式请求 ID
+  requestId?: string; // 旧测试服务兼容输入，发送时转换为 reqId
   m?: V4RpcMethod | (string & {}); // 远端方法名
   data?: TData; // 指令参数
 }
@@ -127,8 +127,8 @@ export interface V4RpcRequest<TData = unknown> {
  */
 export interface V4RpcResponse<TResult = unknown> {
   t: 'resp'; // 响应类型标记
-  reqId?: string; // 推荐响应 ID
-  requestId?: string; // 测试服务兼容响应 ID
+  reqId?: string; // 正式响应 ID
+  requestId?: string; // 旧测试服务兼容响应 ID
   result?: TResult; // 成功结果
   error?: string; // 失败错误码
 }
@@ -317,7 +317,7 @@ export type V4ClearOperateOptions =
  * V4 发送 Promise
  */
 export type V4SendPromise<TResponse = unknown> = Promise<TResponse> & {
-  requestId?: string; // 实际发送给被控方的请求 ID
+  requestId?: string; // 请求 ID，对应的 Socket 字段为 reqId
   clientId?: string; // 实际目标被控方 clientId
 };
 

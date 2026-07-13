@@ -502,7 +502,7 @@ export class DglabSocketV4 extends DglabSocketBase {
     // 如果不是 RPC 响应帧则不处理后续响应等待
     if (!V4Rpc.isResponse(data)) return;
 
-    // 只有响应帧且 requestId 匹配时才完成响应等待
+    // 只有响应帧且 reqId（兼容 requestId）匹配时才完成响应等待
     this.rpc.resolveResponse(frame.clientId, data);
   }
 
