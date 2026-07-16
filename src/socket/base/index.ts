@@ -95,7 +95,7 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
 
   /**
    * 获取连接结果
-   * targetId, secret (仅 V4 用于 HTTP 鉴权)
+   * targetId: 被控端 ID
    * */
   protected abstract getConnectedResult(): DglabSocketConnectResult | undefined;
 

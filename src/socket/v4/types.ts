@@ -19,7 +19,6 @@ export type V4ServerFrame<TData = unknown> =
 export interface V4HelloFrame {
   type: 'hello';
   clientId: string; // 被控方 ID
-  secret?: string; // HTTP 鉴权密钥
 }
 
 /**

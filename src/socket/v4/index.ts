@@ -38,7 +38,6 @@ type DevicePatchValue =
 
 export class DglabSocketV4 extends DglabSocketBase {
   private _targetId?: string; // 被控端 ID
-  private _secret?: string; // HTTP 密钥
 
   private readonly clientMap = new Map<string, V4Client>(); // 已接入被控方集合
   readonly rpc = new V4Rpc((frame) => this.sendFrame(frame), this.options);
@@ -51,14 +50,6 @@ export class DglabSocketV4 extends DglabSocketBase {
    */
   get targetId(): string | undefined {
     return this._targetId;
-  }
-
-  /**
-   * 获取 HTTP 密钥
-   * @return string | undefined
-   */
-  get secret(): string | undefined {
-    return this._secret;
   }
 
   /**
@@ -375,7 +366,6 @@ export class DglabSocketV4 extends DglabSocketBase {
   protected onSocketClosed(): void {
     this.stopServerPing();
     this._targetId = undefined;
-    this._secret = undefined;
 
     for (const client of this.clientMap.values()) {
       client.destroy();
@@ -390,30 +380,24 @@ export class DglabSocketV4 extends DglabSocketBase {
   /**
    * 获取连接结果
    * - targetId: 被控端 ID
-   * - secret: HTTP 鉴权密钥
    * @return DglabSocketConnectResult | undefined
    * */
   protected getConnectedResult(): DglabSocketConnectResult | undefined {
     if (!this._targetId) return undefined;
-    return { targetId: this._targetId, secret: this._secret };
+    return { targetId: this._targetId };
   }
 
   /**
-   * 处理 hello 帧，获取被控端 ID 和 HTTP 鉴权密钥
+   * 处理 hello 帧，获取被控端 ID
    * @param frame V4HelloFrame
    * */
   private handleHello(frame: V4HelloFrame): void {
-    // 测试服务返回 secret，旧文档服务可能返回 apikey
     this._targetId = frame.clientId;
-    this._secret = frame.secret;
 
     this.setState(DGLAB_SOCKET_STATE.WaitingForPeer);
     this.startServerPing();
 
-    this.resolveActiveConnect({
-      targetId: frame.clientId,
-      secret: this._secret,
-    });
+    this.resolveActiveConnect({ targetId: frame.clientId });
   }
 
   /**

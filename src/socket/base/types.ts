@@ -123,11 +123,9 @@ export type DglabSocketOptions = DglabSocketV3Options | DglabSocketV4Options;
 /**
  * SOCKET 连接结果
  * targetId: 被控端 ID
- * secret: HTTP 密钥（仅 V4 用于 HTTP 鉴权）
  */
 export interface DglabSocketConnectResult {
   targetId: string;
-  secret?: string;
 }
 
 /**
