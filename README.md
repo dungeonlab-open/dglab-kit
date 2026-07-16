@@ -83,7 +83,7 @@ import {
   V4Channel,
 } from 'dglab-kit';
 
-const socket = new DglabSocket({ url: 'ws://127.0.0.1:9998' });
+const socket = new DglabSocket({ url: 'wss://trex.dungeon-lab.cn/v4' });
 
 socket.on('state', (state, previous) => {
   console.log('socket state:', previous, '->', state);
@@ -103,7 +103,7 @@ socket.on('action', (action) => {
 
 const { targetId, secret } = await socket.connect();
 
-console.log('请将这个 APP 配对 ID 交给 DG-LAB 4 APP:', targetId);
+console.log('使用 DG-LAB 4 APP 进行连接:', `wss://trex.dungeon-lab.cn/v4/?tid=${targetId}`);
 console.log('HTTP 鉴权密钥:', secret);
 
 socket.on('client-attached', async (clientId) => {
@@ -138,12 +138,12 @@ V4 协议支持任意 URL Path。通常可以把控制方 `targetId` 放进 URL 
 需要注意在 V4 协议中 URL Query 使用 `tid` 而不是 `targetId`。
 
 ```ts
-const appSocketUrl = `wss://ws.dungeon-lab.cn/?tid=${targetId}`;
+const appSocketUrl = `wss://trex.dungeon-lab.cn/v4/?tid=${targetId}`;
 
 const qrcode = `https://dungeon-lab.cn/s/?v=1&action=socket&url=${encodeURIComponent(appSocketUrl)}`;
 ```
 
-如果你使用自部署服务器，请把 `wss://ws.dungeon-lab.cn/` 换成自己的 V4 WebSocket 地址。
+如果你使用自部署服务器，请把 `wss://trex.dungeon-lab.cn/v4` 换成自己的 V4 WebSocket 地址。
 
 ## Socket SDK API
 
@@ -373,7 +373,7 @@ HTTP body 最大约 1 MiB。服务器会等待同一 APP 被控方返回相同 `
 import { DglabSocket } from 'dglab-kit';
 
 const socket = new DglabSocket();
-const ws = new WebSocket('ws://127.0.0.1:9998');
+const ws = new WebSocket('wss://trex.dungeon-lab.cn/v4');
 
 socket.setSender((data) => ws.send(data));
 
@@ -407,7 +407,7 @@ const socket = new DglabSocket({
 });
 
 const { targetId } = await socket.connect();
-console.log('将控制方 ID 交给 APP:', targetId);
+console.log('使用 APP 进行连接:', `wss://ws.dungeon-lab.cn/${targetId}`);
 
 socket.on('client-attached', () => {
   socket.setStrength(V3Channel.A, 20);
@@ -508,7 +508,7 @@ await socketV4.sendPulse(clientId, slotId, V4Channel.A, 1000, frames);
 控制方直接连接服务器：
 
 ```text
-ws://host:9998
+wss://trex.dungeon-lab.cn/v4
 ```
 
 连接成功后，服务器返回：
@@ -538,7 +538,7 @@ ws://host:9998
 APP 被控方通过控制方的 `clientId` 建立连接：
 
 ```text
-ws://host:9998?targetId=<controller-client-id>
+wss://trex.dungeon-lab.cn/v4?tid=<controller-client-id>
 ```
 
 连接成功后，服务器向 APP 被控方发送：
@@ -1022,7 +1022,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 | `markLight` | `'yellow' \| 'green' \| 'red' \| 'purple' \| 'blue' \| 'cyan' \| null` | 设备灯颜色；未设置时通常回退为 `'yellow'` |
 | `hasDevice` | `boolean`                                                              | 当前设备是否已蓝牙连接                |
 
-### Coyote V2 / Coyote V3 `props`
+### Coyote V2 / Coyote V3 `props` | 郊狼情趣脉冲主机
 
 适用设备类型：`COYOTE_020`、`COYOTE_030`。
 
@@ -1043,7 +1043,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 | `channelBStatus` | `0 \| 1 \| 2 \| 3 \| 4` | B 通道输出状态，同 `channelAStatus`                                    |
 | `updateValue`    | `string`                | 设备上报的更新值                                                       |
 
-### Coyote V2 / Coyote V3 `slotState`
+#### Coyote V2 / Coyote V3 `slotState`
 
 适用设备类型：`COYOTE_020`、`COYOTE_030`。`channelA` 和 `channelB` 结构相同：
 
@@ -1062,7 +1062,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 | `channelA.comfortLimit.autoIncrScope` / `channelB.comfortLimit.autoIncrScope`     | `1 \| 2 \| 3`           | 自适应应用范围：`1` 仅舒适上限，`2` 仅绝对上限，`3` 两者都应用 |
 | `channelA.comfortLimit.totalIncr` / `channelB.comfortLimit.totalIncr`             | `number`                | 当前累计自适应增量                             |
 
-### OVC V1 `props`
+### OVC V1 `props` | 负鼠振动控制器
 
 适用设备类型：`OVC_1`。
 
@@ -1080,7 +1080,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 | `updateTime`     | `string`           | 设备上报更新时间，当前可能保留为空字符串                        |
 | `updateValue`    | `string`           | 设备上报更新值，当前可能保留为空字符串                         |
 
-### OVC V1 `slotState`
+#### OVC V1 `slotState`
 
 适用设备类型：`OVC_1`。
 
@@ -1089,7 +1089,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 | `channelA.isMuted` | `boolean` | A 通道是否静音  |
 | `channelB.isMuted` | `boolean` | B 通道是否静音  |
 
-### BMTR V1 `props`
+### BMTR V1 `props` | 灵猫边缘控制传感器
 
 适用设备类型：`BMTR_1`。
 
@@ -1103,7 +1103,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 | `updateTime`   | `string` | 设备上报更新时间，当前可能保留为空字符串                     |
 | `updateValue`  | `string` | 设备上报更新值，当前可能保留为空字符串                      |
 
-### BMTR V1 `slotState`
+#### BMTR V1 `slotState`
 
 适用设备类型：`BMTR_1`。
 
