@@ -1,13 +1,13 @@
 # DGLAB KIT
 
-DGLAB KIT 是面向 **DG-LAB 4 APP** 的 TypeScript SDK。它可以在 Bun、Node.js、浏览器或其他 JavaScript 运行环境中，通过 WebSocket 与 DG-LAB 4 APP 配对，并控制 APP 暴露的本地设备。
+DGLAB KIT 是面向 **DG-LAB 4 APP** 的 TypeScript SDK。它可以在 Bun、Node.js、浏览器或其他 JavaScript 运行环境中，通过 WebSocket 与 DG-LAB 4 APP 配对，并控制 APP 暴露的本地设备
 
 SDK 当前主要提供两类能力：
 
-- **Socket SDK**：连接 V3 / V4 WebSocket 中继服务，完成 APP 配对、设备发现、强度控制、波形下发、任务清理和自定义反馈接收。
-- **Waveform SDK**：内置郊狼与负鼠波形数据，可直接作为 V3 / V4 波形下发参数使用。
+- **Socket SDK**：连接 V3 / V4 WebSocket 中继服务，完成 APP 配对、设备发现、强度控制、波形下发、任务清理和自定义反馈接收
+- **Waveform SDK**：内置郊狼与负鼠波形数据，可直接作为 V3 / V4 波形下发参数使用
 
-> 推荐优先使用 V4 协议。V4 支持 `1 控制方 : N APP 被控方`，并提供设备列表、设备状态增量、RPC 响应等能力。V3 仅用于兼容旧版控制端。
+> 推荐优先使用 V4 协议。V4 支持 `1 控制方 : N APP 被控方`，并提供设备列表、设备状态增量、RPC 响应等能力。V3 仅用于兼容旧版控制端
 
 ## 目录
 
@@ -26,9 +26,9 @@ SDK 当前主要提供两类能力：
 
 ## 运行要求
 
-- Node.js 22+。
-- TypeScript 项目推荐启用 ES Module 或支持顶层 `await`；CommonJS 项目可以把示例代码包进 `async function main()`。
-- 浏览器、React Native、小程序等环境如需自定义 WebSocket 实现，可使用 [手动传输模式](#手动传输模式)。
+- Node.js 22+
+- TypeScript 项目推荐启用 ES Module 或支持顶层 `await`；CommonJS 项目可以把示例代码包进 `async function main()`
+- 浏览器、React Native、小程序等环境如需自定义 WebSocket 实现，可使用 [手动传输模式](#手动传输模式)
 
 ## 安装
 
@@ -67,11 +67,11 @@ APP 2 ──┼──── ws ──── server_v4.js ◄──── ws ─�
 APP 3 ──┘
 ```
 
-控制方只需要连接中继服务器；APP 使用控制方的 `targetId` 接入。接入成功后，APP 会主动上报一次 `devices.snapshot`，之后通过 `devices.patch` 和 `slots.patch` 发送增量。
+控制方只需要连接中继服务器；APP 使用控制方的 `targetId` 接入。接入成功后，APP 会主动上报一次 `devices.snapshot`，之后通过 `devices.patch` 和 `slots.patch` 发送增量
 
 ## 快速开始：V4 控制 APP
 
-下面示例完成一条完整链路：连接 V4 中继服务器，拿到配对 ID，等待 APP 接入，读取设备，调整 A 通道强度，下发内置波形，然后清理任务。
+下面示例完成一条完整链路：连接 V4 中继服务器，拿到配对 ID，等待 APP 接入，读取设备，调整 A 通道强度，下发内置波形，然后清理任务
 
 ```ts
 import {
@@ -131,8 +131,8 @@ socket.on('client-attached', async (clientId) => {
 
 ## 生成 APP 配对二维码
 
-V4 协议支持任意 URL Path。通常可以把控制方 `targetId` 放进 URL Query 中，再生成二维码给 APP 扫描或通过浏览器跳转到 DG-LAB 4 APP。
-需要注意在 V4 协议中 URL Query 使用 `tid` 而不是 `targetId`。
+V4 协议支持任意 URL Path。通常可以把控制方 `targetId` 放进 URL Query 中，再生成二维码给 APP 扫描或通过浏览器跳转到 DG-LAB 4 APP
+需要注意在 V4 协议中 URL Query 使用 `tid` 而不是 `targetId`
 
 ```ts
 const appSocketUrl = `wss://trex.dungeon-lab.cn/v4/?tid=${targetId}`;
@@ -140,7 +140,7 @@ const appSocketUrl = `wss://trex.dungeon-lab.cn/v4/?tid=${targetId}`;
 const qrcode = `https://dungeon-lab.cn/s/?v=1&action=socket&url=${encodeURIComponent(appSocketUrl)}`;
 ```
 
-如果你使用自部署服务器，请把 `wss://trex.dungeon-lab.cn/v4` 换成自己的 V4 WebSocket 地址。
+如果你使用自部署服务器，请把 `wss://trex.dungeon-lab.cn/v4` 换成自己的 V4 WebSocket 地址
 
 ## Socket SDK API
 
@@ -166,9 +166,9 @@ const socket = new DglabSocket(options);
 const { targetId } = await socket.connect();
 ```
 
-| 字段         | 说明                       |
-|------------|--------------------------|
-| `targetId` | 当前控制方 ID。APP 被控方需要使用它接入。 |
+| 字段         | 说明                                    |
+|------------|-----------------------------------------|
+| `targetId` | 当前控制方 ID。APP 被控方需要使用它接入 |
 
 ### Socket 状态
 
@@ -203,7 +203,7 @@ import type { DGLAB_SOCKET_STATE } from 'dglab-kit';
 
 ### V4 属性与方法
 
-V4 支持多个 APP 同时接入，因此所有面向 APP 的方法都需要传入目标 APP 的 `clientId`。
+V4 支持多个 APP 同时接入，因此所有面向 APP 的方法都需要传入目标 APP 的 `clientId`
 
 | API                                                                      | 说明                   |
 |--------------------------------------------------------------------------|----------------------|
@@ -211,24 +211,28 @@ V4 支持多个 APP 同时接入，因此所有面向 APP 的方法都需要传�
 | `clientIds`                                                              | 已接入 APP ID 列表        |
 | `clients`                                                                | 已接入 APP 状态列表         |
 | `getClient(clientId)`                                                    | 获取指定 APP 状态          |
-| `ping(clientId, options?)`                                               | 请求 APP 响应，返回链路延迟 ms  |
+| `ping(clientId, options?)`                                               | 请求 APP 响应，返回 APP 收到请求时的本地时间戳 |
 | `requestDevices(clientId)`                                               | 请求 APP 当前设备列表        |
-| `send(clientId, data, options?)`                                         | 发送自定义 V4 RPC 或应用层消息  |
+| `send(clientId, data, options?)`                                         | 发送自定义 V4 RPC 并等待对应响应   |
 | `resetIntensity(clientId, slotId, channel, options?)`                    | 将指定通道强度设置为 `0`       |
 | `addIntensity(clientId, slotId, channel, value, options?)`               | 增加强度                 |
 | `reduceStrength(clientId, slotId, channel, value, options?)`             | 减少强度                 |
 | `setTempIntensity(clientId, slotId, channel, value, duration, options?)` | 设置临时强度，任务结束后自动回到 `0` |
 | `sendPulse(clientId, slotId, channel, duration, frames, options?)`       | 下发波形帧                |
-| `clearPulse(clientId, slotId, channel)`                                  | 清理指定设备通道波形           |
+| `clearPulse(clientId, slotId, channel)`                                  | 清理指定设备通道的全部任务；等价于按通道调用 `clearOperate` |
 | `clearOperate(clientId, options?)`                                       | 清理任务；可清理全部、指定设备或指定通道 |
 
 ### V4 操作选项
+
+`resetIntensity()`、`addIntensity()`、`reduceStrength()`、`setTempIntensity()` 和 `sendPulse()` 的 `options` 支持以下字段：
 
 | 选项          | 说明                           |
 |-------------|------------------------------|
 | `timeout`   | 本次指令等待响应的超时时间，单位 ms          |
 | `priority`  | 任务优先级，`0 \| 1 \| 2`，默认由协议端决定 |
 | `immediate` | 是否替换同设备、同通道、同类型的已有任务         |
+
+`sendPulse()` 还支持 `version` 和 `seq`；`send()`、`ping()` 的 `options` 仅支持 `timeout`。`clearOperate()` 的 `options` 用来指定 `slotId` 和 `channel`，不使用上述操作选项。
 
 ## V4 常用操作
 
@@ -242,14 +246,20 @@ for (const device of devices) {
 }
 ```
 
-设备出现在 `devices.snapshot`、`devices.get` 或 `devices.patch.added` 后即可直接操作，不需要对 slot 额外发送连接指令。
+设备出现在 `devices.snapshot`、`devices.get` 或 `devices.patch.added` 后即可直接操作，不需要对 slot 额外发送连接指令
 
 ### 探测 APP 链路延迟
 
 ```ts
-const rtt = await socket.ping(clientId);
+const startedAt = performance.now();
+const receivedAt = await socket.ping(clientId);
+const rtt = performance.now() - startedAt;
+
 console.log('RTT:', rtt, 'ms');
+console.log('APP 收到 ping 时的本地时间戳:', receivedAt);
 ```
+
+`ping()` 的返回值是 APP 收到请求时的本地时间戳；RTT 需要像上例一样由控制方按请求往返耗时计算
 
 ### 强度控制
 
@@ -302,26 +312,20 @@ await socket.clearOperate(clientId, { slotId, channel: V4Channel.A });
 
 ### 发送自定义 RPC
 
-SDK 未封装的 V4 协议能力可以通过 `send()` 下发。例如协议支持 `SetMute`，如果你的 SDK 版本没有提供专用方法，可以直接发送 `device.op`：
+SDK 未封装的 V4 RPC 可以通过 `send()` 下发。`send()` 会补充 `reqId`，并等待具有相同 `reqId` 的响应。以下示例直接发送 `devices.get`；通常应优先使用等价的 `requestDevices()` 封装：
 
 ```ts
-await socket.send(clientId, {
+const result = await socket.send(clientId, {
   t: 'req',
-  reqId: crypto.randomUUID(),
-  m: 'device.op',
-  data: {
-    s: slotId,
-    t: 5,
-    c: V4Channel.A,
-    p: 1,
-    v: true,
-  },
+  m: 'devices.get',
 });
+
+console.log(result);
 ```
 
 ## 手动传输模式
 
-不传 `url` 时，SDK 不会主动创建 WebSocket。你可以绑定自己的传输实现，并把 WebSocket 生命周期事件转交给 SDK。
+不传 `url` 时，SDK 不会主动创建 WebSocket。你可以绑定自己的传输实现，并把 WebSocket 生命周期事件转交给 SDK
 
 ```ts
 import { DglabSocket } from 'dglab-kit';
@@ -340,11 +344,11 @@ const { targetId } = await socket.connect();
 console.log(targetId);
 ```
 
-手动传输模式适用于浏览器、React Native、小程序或任何需要自定义 WebSocket 实现的运行环境。
+手动传输模式适用于浏览器、React Native、小程序或任何需要自定义 WebSocket 实现的运行环境
 
 ## V3 旧协议
 
-V3 为旧协议，使用 `DGLAB_SOCKET_VERSION.V3` 显式开启。V3 只维护一个 APP 配对关系，适合兼容旧版控制端。
+V3 为旧协议，使用 `DGLAB_SOCKET_VERSION.V3` 显式开启。V3 只维护一个 APP 配对关系，适合兼容旧版控制端
 
 ```ts
 import {
@@ -393,7 +397,7 @@ socket.on('action', (action) => {
 | `sendPulse(options)`             | 下发波形             |
 | `clearPulse(channel)`            | 清空通道波形           |
 
-V3 的强度和清理方法中，`channel` 使用 `V3Channel.A` 或 `V3Channel.B`。
+V3 的强度和清理方法中，`channel` 使用 `V3Channel.A` 或 `V3Channel.B`
 
 V3 的 `sendPulse` 参数为 `{ channel, time, data }`：
 
@@ -405,7 +409,7 @@ V3 的 `sendPulse` 参数为 `{ channel, time, data }`：
 
 ## Waveform SDK
 
-内置波形包含郊狼与负鼠两组数据。
+内置波形包含郊狼与负鼠两组数据
 
 ```ts
 import {
@@ -436,7 +440,7 @@ console.log(ovcAlarm.raw);
 }
 ```
 
-`raw` 是十六进制波形帧列表，可直接作为 V3 `sendPulse({ data })` 的 `data`，也可作为 V4 `sendPulse(clientId, ..., frames, ...)` 的 `frames`。
+`raw` 是十六进制波形帧列表，可直接作为 V3 `sendPulse({ data })` 的 `data`，也可作为 V4 `sendPulse(clientId, ..., frames, ...)` 的 `frames`
 
 ```ts
 const frames = COYOTE_WAVEFORMS[COYOTE_WAVEFORM.BUBBLE].raw;
@@ -452,7 +456,7 @@ await socketV4.sendPulse(clientId, slotId, V4Channel.A, 1000, frames);
 
 ## V4 协议参考
 
-这一节用于调试、跨语言实现或直接对接 V4 WebSocket 协议。如果你只使用 `DglabSocket` 的封装方法，可以优先阅读前面的快速开始和 API 部分。
+这一节用于调试、跨语言实现或直接对接 V4 WebSocket 协议。如果你只使用 `DglabSocket` 的封装方法，可以优先阅读前面的快速开始和 API 部分
 
 <details>
 <summary>V4 连接流程、服务器帧、心跳和关闭码</summary>
@@ -471,7 +475,7 @@ wss://trex.dungeon-lab.cn/v4
 { "type": "hello", "clientId": "controller-client-id" }
 ```
 
-控制方保存 `clientId`。被控方需要使用这个 `clientId` 作为 `targetId` 接入。
+控制方保存 `clientId`。被控方需要使用这个 `clientId` 作为 `targetId` 接入
 
 当有 APP 被控方接入时，控制方收到：
 
@@ -485,7 +489,7 @@ wss://trex.dungeon-lab.cn/v4
 { "type": "client_disconnected", "clientId": "controlled-client-id" }
 ```
 
-控制方应以 APP 的 `clientId` 为 key 维护被控方列表。后续所有发给某个 APP 的应用层消息，都需要在服务器帧中携带目标 `clientId`。
+控制方应以 APP 的 `clientId` 为 key 维护被控方列表。后续所有发给某个 APP 的应用层消息，都需要在服务器帧中携带目标 `clientId`
 
 ### APP 被控方连接
 
@@ -534,7 +538,7 @@ wss://trex.dungeon-lab.cn/v4?tid=<controller-client-id>
 { "type": "idle_timeout" }
 ```
 
-随后服务器主动关闭控制方连接。当所有 APP 被控方都断开后，服务器也会重新开始这 5 分钟空闲计时。
+随后服务器主动关闭控制方连接。当所有 APP 被控方都断开后，服务器也会重新开始这 5 分钟空闲计时
 
 ### 心跳与服务器级 ping
 
@@ -556,7 +560,7 @@ wss://trex.dungeon-lab.cn/v4?tid=<controller-client-id>
 { "type": "pong", "ts": 1710000000123 }
 ```
 
-这是客户端到 V4 Socket 服务器的探测，不会转发给对端。
+这是客户端到 V4 Socket 服务器的探测，不会转发给对端
 
 ### WebSocket 关闭码
 
@@ -566,7 +570,7 @@ wss://trex.dungeon-lab.cn/v4?tid=<controller-client-id>
 | `4001`     | `controller_not_found`    | APP 被控方收到 | `targetId` 对应控制方不存在 |
 | `4002`     | `idle_timeout`            | 控制方收到     | 控制方空闲超时             |
 
-普通正常关闭不使用 4000+ 业务状态码。
+普通正常关闭不使用 4000+ 业务状态码
 
 </details>
 
@@ -603,11 +607,11 @@ APP 被控方上报的应用层消息由服务器补充来源 `clientId`：
 }
 ```
 
-控制方根据外层 `clientId` 判断消息来自哪个 APP。
+控制方根据外层 `clientId` 判断消息来自哪个 APP
 
 ### APP 消息类型
 
-APP 消息位于外层 `message.data` 中，统一携带 `t` 字段。
+APP 消息位于外层 `message.data` 中，统一携带 `t` 字段
 
 | `t`    | 说明                    |
 |--------|-----------------------|
@@ -649,7 +653,7 @@ RPC 响应字段：
 
 ### 设备描述结构
 
-`devices.get`、`devices.snapshot` 和 `devices.patch` 会使用设备描述结构。
+`devices.get`、`devices.snapshot` 和 `devices.patch` 会使用设备描述结构
 
 | 字段          | 类型       | 必填 | 说明                    |
 |-------------|----------|----|-----------------------|
@@ -664,7 +668,7 @@ RPC 响应字段：
 
 ### `devices.snapshot`
 
-APP 被控方连接成功后立即上报当前全部设备；即使没有设备，`devices` 也会作为空数组发送。
+APP 被控方连接成功后立即上报当前全部设备；即使没有设备，`devices` 也会作为空数组发送
 
 ```json
 {
@@ -686,11 +690,11 @@ APP 被控方连接成功后立即上报当前全部设备；即使没有设备�
 }
 ```
 
-控制方收到后应使用 `devices` 替换该 APP 的本地设备列表。
+控制方收到后应使用 `devices` 替换该 APP 的本地设备列表
 
 ### `devices.patch`
 
-APP 被控方会在设备列表变化时主动上报增量。
+APP 被控方会在设备列表变化时主动上报增量
 
 ```json
 {
@@ -718,11 +722,11 @@ APP 被控方会在设备列表变化时主动上报增量。
 | `added`   | 新增设备的完整信息，包含 `props` 和 `slotState` |
 | `removed` | 被移除设备的字符串 `slotId`                 |
 
-控制方收到 `devices.patch` 后直接更新本地设备列表，不需要重新请求全量列表。
+控制方收到 `devices.patch` 后直接更新本地设备列表，不需要重新请求全量列表
 
 ### `slots.patch`
 
-APP 被控方会按 tick 合并设备状态并上报。
+APP 被控方会按 tick 合并设备状态并上报
 
 ```json
 {
@@ -738,24 +742,24 @@ APP 被控方会按 tick 合并设备状态并上报。
 }
 ```
 
-控制方以字符串 `slotId` 更新对应设备状态。
+控制方以字符串 `slotId` 更新对应设备状态
 
 ### `custom.action`
 
-APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
+APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作
 
 ```json
 { "t": "ev", "ev": "custom.action", "action": 7 }
 ```
 
-控制方应校验 `action` 是 `0` 到 `9` 的整数。
+控制方应校验 `action` 是 `0` 到 `9` 的整数
 
 </details>
 
 <details>
 <summary>V4 设备操作 RPC</summary>
 
-设备操作通过 `device.op` 下发。控制方不需要传内部任务 ID；APP 被控方会使用外层 RPC `reqId` 作为任务 ID。
+设备操作通过 `device.op` 下发。控制方不需要传内部任务 ID；APP 被控方会使用外层 RPC `reqId` 作为任务 ID
 
 ```json
 {
@@ -786,11 +790,11 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 
 ### 调度规则
 
-- 不同设备、通道、任务类型和优先级分别调度。
-- 相同设备、通道、任务类型和优先级按队列执行。
-- 同一 tick 连续入队的 oneShot 会在该 tick 一次执行完。
-- `im: true` 会先替换同设备、通道、任务类型的已有任务。
-- 对持续任务来说，`d: 0` 表示不按持续时间自动结束；`AppendPulseData` 仍会在帧列表消费完后完成。
+- 不同设备、通道、任务类型和优先级分别调度
+- 相同设备、通道、任务类型和优先级按队列执行
+- 同一 tick 连续入队的 oneShot 会在该 tick 一次执行完
+- `im: true` 会先替换同设备、通道、任务类型的已有任务
+- 对持续任务来说，`d: 0` 表示不按持续时间自动结束；`AppendPulseData` 仍会在帧列表消费完后完成
 
 ### 可用 `ActionType`
 
@@ -799,14 +803,13 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 | `0` | `AppendPulseData`  | `v`, `ver?`, `seq?` | 持续任务    | `sendPulse`                       |
 | `3` | `AddIntensity`     | `v`                 | oneShot | `addIntensity` / `reduceStrength` |
 | `4` | `SetTempIntensity` | `v`                 | 持续任务    | `setTempIntensity`                |
-| `5` | `SetMute`          | `v`                 | oneShot | 可通过 `send()` 下发                   |
 | `7` | `SetIntensity`     | `v`                 | oneShot | `resetIntensity`                  |
 
-`ActionType.AppendPulse` (`t: 1`)、`ActionType.ClearPulse` (`t: 2`) 和 `ActionType.SetVar` (`t: 6`) 保留在枚举中，但当前 APP 被控方没有注册对应 JSON task 实现；通过 `device.op` 下发会返回 `invalid_operate`。清理波形或任务请使用 `device.op.clear`。
+当前公开的 `V4ActionType` 仅包含上表四种操作。清理波形或任务请使用 `device.op.clear`
 
 ### `AppendPulseData` (`t: 0`)
 
-向指定通道推送波形数据。每个 tick 消费 `v` 中的一帧，tick 间隔通常为 100ms。
+向指定通道推送波形数据。每个 tick 消费 `v` 中的一帧，tick 间隔通常为 100ms
 
 | 字段    | 类型                       | 说明                             |
 |-------|--------------------------|--------------------------------|
@@ -822,11 +825,11 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 | `2`   | `[a, b, interval]`                 |
 | `3`   | `[a1, a2, a3, a4, b1, b2, b3, b4]` |
 
-十六进制字符串必须由完整字节对组成，例如 `0A0A0A0A00000000`。SDK 使用内置波形时会直接提供合法的十六进制帧列表。
+十六进制字符串必须由完整字节对组成，例如 `0A0A0A0A00000000`。SDK 使用内置波形时会直接提供合法的十六进制帧列表
 
 ### `AddIntensity` (`t: 3`)
 
-对指定通道做相对强度调整。`v` 可以为正数或负数。
+对指定通道做相对强度调整。`v` 可以为正数或负数
 
 ```json
 {
@@ -845,7 +848,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 
 ### `SetTempIntensity` (`t: 4`)
 
-设置指定通道的临时强度。任务结束时，APP 被控方会自动把该临时强度重置为 `0`。
+设置指定通道的临时强度。任务结束时，APP 被控方会自动把该临时强度重置为 `0`
 
 ```json
 {
@@ -863,32 +866,9 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 }
 ```
 
-### `SetMute` (`t: 5`)
-
-设置指定通道的静音状态。
-
-```json
-{
-  "t": "req",
-  "reqId": "req-13",
-  "m": "device.op",
-  "data": {
-    "s": "slot-a",
-    "t": 5,
-    "c": 0,
-    "p": 1,
-    "v": true
-  }
-}
-```
-
-| 字段  | 类型        | 说明                     |
-|-----|-----------|------------------------|
-| `v` | `boolean` | `true` 静音，`false` 取消静音 |
-
 ### `SetIntensity` (`t: 7`)
 
-将指定通道的绝对强度设置为 `0`。V4 协议不接受其他目标值。
+将指定通道的绝对强度设置为 `0`。V4 协议不接受其他目标值
 
 ```json
 {
@@ -907,7 +887,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 
 ### `device.op` 响应
 
-`device.op` 不会在入队成功时立刻响应；APP 被控方会等任务完成、被清理、被替换或连接断开取消后，才返回 RPC 响应。
+`device.op` 不会在入队成功时立刻响应；APP 被控方会等任务完成、被清理、被替换或连接断开取消后，才返回 RPC 响应
 
 ```json
 {
@@ -960,7 +940,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 { "t": "req", "reqId": "req-5", "m": "device.op.clear", "data": { "s": "slot-a", "c": 0 } }
 ```
 
-`device.op.clear` 成功时返回空对象 `{}`。清理已经入队且带有 RPC `reqId` 的任务时，那些任务也会分别收到 `reason: 'cleared'` 的 `device.op` 响应。`data.c` 只能和 `data.s` 一起使用；只传 `{ "c": 0 }` 会返回 `invalid_params`。
+`device.op.clear` 成功时返回空对象 `{}`。清理已经入队且带有 RPC `reqId` 的任务时，那些任务也会分别收到 `reason: 'cleared'` 的 `device.op` 响应。`data.c` 只能和 `data.s` 一起使用；只传 `{ "c": 0 }` 会返回 `invalid_params`
 
 </details>
 
@@ -978,7 +958,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 
 ### Coyote V2 / Coyote V3 `props` | 郊狼情趣脉冲主机
 
-适用设备类型：`COYOTE_020`、`COYOTE_030`。
+适用设备类型：`COYOTE_020`、`COYOTE_030`
 
 | 字段             | 类型       | 说明                                       |
 |----------------|----------|------------------------------------------|
@@ -1018,7 +998,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 
 ### OVC V1 `props` | 负鼠振动控制器
 
-适用设备类型：`OVC_1`。
+适用设备类型：`OVC_1`
 
 | 字段               | 类型                 | 说明                                          |
 |------------------|--------------------|---------------------------------------------|
@@ -1036,7 +1016,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 
 #### OVC V1 `slotState`
 
-适用设备类型：`OVC_1`。
+适用设备类型：`OVC_1`
 
 | 字段                 | 类型        | 说明        |
 |--------------------|-----------|-----------|
@@ -1045,7 +1025,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 
 ### BMTR V1 `props` | 灵猫边缘控制传感器
 
-适用设备类型：`BMTR_1`。
+适用设备类型：`BMTR_1`
 
 | 字段             | 类型       | 说明                                       |
 |----------------|----------|------------------------------------------|
@@ -1059,7 +1039,7 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 
 #### BMTR V1 `slotState`
 
-适用设备类型：`BMTR_1`。
+适用设备类型：`BMTR_1`
 
 | 字段               | 类型                      | 说明                                                             |
 |------------------|-------------------------|----------------------------------------------------------------|
@@ -1071,12 +1051,12 @@ APP 被控方可以主动向控制方发送 `0` 到 `9` 的自定义动作。
 
 ### APP 一直没有接入
 
-检查 APP 使用的 WebSocket 地址是否能访问，并确认二维码或配对 URL 中的 `targetId` / `tid` 是当前控制方 `connect()` 返回的 `targetId`。控制方连接后 5 分钟内没有任何 APP 接入时，V4 服务器会发送 `idle_timeout` 并关闭连接；所有 APP 断开后也会重新开始空闲计时。
+检查 APP 使用的 WebSocket 地址是否能访问，并确认二维码或配对 URL 中的 `targetId` / `tid` 是当前控制方 `connect()` 返回的 `targetId`。控制方连接后 5 分钟内没有任何 APP 接入时，V4 服务器会发送 `idle_timeout` 并关闭连接；所有 APP 断开后也会重新开始空闲计时
 
 ### 能收到 APP 接入，但控制不了设备
 
-V4 操作需要同时指定 APP 的 `clientId` 和设备的 `slotId`。`clientId` 标识哪个 APP，`slotId` 标识这个 APP 内的哪个设备。不要把两者混用。
+V4 操作需要同时指定 APP 的 `clientId` 和设备的 `slotId`。`clientId` 标识哪个 APP，`slotId` 标识这个 APP 内的哪个设备。不要把两者混用
 
 ### `device.op` 为什么没有立刻返回
 
-`device.op` 是任务式 RPC。APP 被控方会等任务完成、被清理、被替换或连接断开取消后才返回响应。长时间任务可以设置 `timeout`，或使用 `clearOperate()` 主动清理。
+`device.op` 是任务式 RPC。APP 被控方会等任务完成、被清理、被替换或连接断开取消后才返回响应。长时间任务可以设置 `timeout`，或使用 `clearOperate()` 主动清理
