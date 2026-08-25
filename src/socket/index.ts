@@ -182,6 +182,37 @@ class DglabSocketImpl extends EventEmitter<DglabSocketEventMap> {
       },
       has: (target, property) =>
         property in target || property in target.adapter,
+      set: (target, property, value, receiver) => {
+        // Adapter 暴露的只读状态不能在 wrapper 上创建遮蔽属性
+        if (!(property in target) && property in target.adapter) {
+          const success = Reflect.set(
+            target.adapter,
+            property,
+            value,
+            target.adapter,
+          );
+          if (!success) {
+            throw new TypeError(
+              `无法设置只读 SOCKET 属性: ${String(property)}`,
+            );
+          }
+          return true;
+        }
+
+        return Reflect.set(target, property, value, receiver);
+      },
+      deleteProperty: (target, property) => {
+        // 已存在的 wrapper 自有属性允许删除，以便清除历史遮蔽属性
+        if (property in target) {
+          return Reflect.deleteProperty(target, property);
+        }
+
+        if (property in target.adapter) {
+          throw new TypeError(`无法删除只读 SOCKET 属性: ${String(property)}`);
+        }
+
+        return Reflect.deleteProperty(target, property);
+      },
     });
   }
 

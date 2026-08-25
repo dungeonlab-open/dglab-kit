@@ -25,6 +25,7 @@ interface ActiveConnect {
   promise: Promise<DglabSocketConnectResult>;
   resolve: (value: DglabSocketConnectResult) => void;
   reject: (reason?: unknown) => void;
+  socket?: DglabWebSocketLike;
 }
 
 export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> {
@@ -36,6 +37,7 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
   private connectTimer?: ReturnType<typeof setTimeout>; // 连接超时计时器
   private cleanups: DglabSocketListenerCleanup[] = []; // 监听清理函数
   private currentState = DGLAB_SOCKET_STATE.Idle; // 当前状态
+  private socketGeneration = 0; // SOCKET 代次，忽略旧连接晚到的事件
 
   constructor(options: DglabSocketOptions = {}) {
     super();
@@ -71,15 +73,28 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
     const activeConnect: ActiveConnect = { promise, resolve, reject };
     this.activeConnect = activeConnect;
     this.connectTimer = setTimeout(() => {
+      // 只处理当前这一轮连接的超时，避免旧计时器影响新连接
+      if (this.activeConnect !== activeConnect) return;
+
       // 连接超时，拒绝连接等待
       this.rejectActiveConnect(
         createNamedError('socket-connect-timeout', '连接超时'),
       );
+
+      // 不再复用超时的连接
+      const socket = activeConnect.socket;
+      if (socket && this.socket === socket) {
+        try {
+          this.handleSocketClose(1000, 'connect_timeout');
+        } finally {
+          socket.close(1000, 'connect_timeout');
+        }
+      }
     }, this.connectTimeout());
 
     // 尝试创建 SOCKET
     try {
-      this.openSocket();
+      activeConnect.socket = this.openSocket();
     } catch (error) {
       this.rejectActiveConnect(
         error instanceof Error
@@ -174,11 +189,14 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
     );
     this.setState(DGLAB_SOCKET_STATE.Disconnected);
 
-    // 关闭 SOCKET
-    this.socket?.close(code, reason);
+    const socket = this.socket;
+    if (!socket) return; // SOCKET 实例存在再关闭
 
-    // 分离监听
-    this.detachListeners();
+    try {
+      this.handleSocketClose(code, reason);
+    } finally {
+      socket.close(code, reason);
+    }
   }
 
   /**
@@ -227,6 +245,8 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
    * @param reasonValue 关闭原因
    */
   handleSocketClose(eventOrCode?: unknown, reasonValue?: unknown): void {
+    if (!this.socket && !this.activeConnect) return;
+
     // 转换为关闭事件
     let closeEvent: DglabSocketCloseEvent;
     if (isRecord(eventOrCode)) {
@@ -264,6 +284,10 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
 
     // 设置状态为已断开
     this.setState(DGLAB_SOCKET_STATE.Disconnected);
+
+    // 使当前 SOCKET 及其代次失效，避免关闭完成后的旧事件影响后续连接
+    this.socket = undefined;
+    this.socketGeneration += 1;
 
     // 分离监听
     this.detachListeners();
@@ -411,13 +435,16 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
 
     // 设置 SOCKET 实例
     this.socket = socket;
+    const generation = ++this.socketGeneration;
 
     // 监听 WebSocket 事件
     this.cleanups = [
-      this.listenSocket(socket, 'open', (event) =>
-        this.handleSocketOpen(event),
-      ),
+      this.listenSocket(socket, 'open', (event) => {
+        if (!this.isCurrentSocket(socket, generation)) return;
+        this.handleSocketOpen(event);
+      }),
       this.listenSocket(socket, 'message', (...args) => {
+        if (!this.isCurrentSocket(socket, generation)) return;
         const [first] = args;
         const data =
           isRecord(first) && 'data' in first
@@ -425,13 +452,25 @@ export abstract class DglabSocketBase extends EventEmitter<DglabSocketEventMap> 
             : (first as DglabSocketIncoming);
         this.handleSocketMessage(data);
       }),
-      this.listenSocket(socket, 'close', (...args) =>
-        this.handleSocketClose(...args),
-      ),
-      this.listenSocket(socket, 'error', (error) =>
-        this.handleSocketError(error),
-      ),
+      this.listenSocket(socket, 'close', (...args) => {
+        if (!this.isCurrentSocket(socket, generation)) return;
+        this.handleSocketClose(...args);
+      }),
+      this.listenSocket(socket, 'error', (error) => {
+        if (!this.isCurrentSocket(socket, generation)) return;
+        this.handleSocketError(error);
+      }),
     ];
+  }
+
+  /**
+   * 判断事件是否仍来自当前 SOCKET
+   */
+  private isCurrentSocket(
+    socket: DglabWebSocketLike,
+    generation: number,
+  ): boolean {
+    return this.socket === socket && this.socketGeneration === generation;
   }
 
   /**

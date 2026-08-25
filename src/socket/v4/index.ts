@@ -456,8 +456,9 @@ export class DglabSocketV4 extends DglabSocketBase {
     this.handleSocketError(
       createNamedError('socket-ping-timeout', '服务端 ping 超时'),
     );
+    const socket = this.socket;
     this.handleSocketClose(1000, 'ping_timeout');
-    this.socket?.close(1000, 'ping_timeout');
+    socket?.close(1000, 'ping_timeout');
   }
 
   /**
