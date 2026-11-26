@@ -74,6 +74,8 @@ jobs:
     environment:
       name: npm
       url: https://www.npmjs.com/package/dglab-kit
+    permissions:
+      id-token: write
     steps:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -84,9 +86,5 @@ jobs:
         with:
           name: npm-distribution
           path: release/
-      - name: Publish checked tarball to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          : "${NODE_AUTH_TOKEN:?Set the NPM_TOKEN secret on the npm environment}"
-          npm publish release/*.tgz --access public --ignore-scripts
+      - name: Publish checked tarball via npm Trusted Publishing
+        run: npm publish release/*.tgz --access public --ignore-scripts
