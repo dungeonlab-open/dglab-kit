@@ -1,0 +1,92 @@
+name: Build and publish npm package
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish to npm if the version is new
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: npm-package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      unpublished: ${{ steps.registry.outputs.unpublished }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1.4.5'
+      - name: Build, pack, and check both Node entry points
+        run: |
+          bun install --frozen-lockfile --ignore-scripts
+          npm run build
+          mkdir release
+          npm pack --ignore-scripts --pack-destination release
+          package_file=("$PWD"/release/*.tgz)
+          test "${#package_file[@]}" -eq 1
+          cd "$(mktemp -d)"
+          npm install --no-audit --no-fund --ignore-scripts "${package_file[0]}"
+          node --input-type=module -e 'import { DglabSocket } from "dglab-kit"; if (typeof DglabSocket !== "function") process.exit(1)'
+          node -e 'if (typeof require("dglab-kit").DglabSocket !== "function") process.exit(1)'
+      - name: Check whether npm already has this version
+        id: registry
+        run: |
+          node --input-type=module <<'JS'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          const { name, version } = JSON.parse(readFileSync('package.json', 'utf8'));
+          const url = 'https://registry.npmjs.org/' + encodeURIComponent(name);
+          const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+          if (!response.ok) throw new Error('npm registry returned ' + response.status);
+          const { versions } = await response.json();
+          if (!versions || typeof versions !== 'object') throw new Error('Unexpected registry response');
+          const unpublished = !Object.hasOwn(versions, version);
+          console.log(name, version, unpublished ? 'new version' : 'already published; skipping upload');
+          appendFileSync(process.env.GITHUB_OUTPUT, 'unpublished=' + unpublished + '\n');
+          JS
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: npm-distribution
+          path: release/*.tgz
+          if-no-files-found: error
+
+  publish:
+    if: ${{ github.ref == 'refs/heads/main' && needs.build.outputs.unpublished == 'true' && (github.event_name == 'push' || inputs.publish) }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/dglab-kit
+    steps:
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: npm-distribution
+          path: release/
+      - name: Publish checked tarball to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          : "${NODE_AUTH_TOKEN:?Set the NPM_TOKEN secret on the npm environment}"
+          npm publish release/*.tgz --access public --ignore-scripts
