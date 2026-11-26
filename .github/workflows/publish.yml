@@ -87,4 +87,4 @@ jobs:
           name: npm-distribution
           path: release/
       - name: Publish checked tarball via npm Trusted Publishing
-        run: npm publish release/*.tgz --access public --ignore-scripts
+        run: npm publish ./release/*.tgz --access public --ignore-scripts
