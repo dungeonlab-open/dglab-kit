@@ -33,5 +33,9 @@
   "dependencies": {
     "eventemitter3": "^5.0.4",
     "ws": "^8.21.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dungeonlab-open/dglab-kit.git"
   }
 }
